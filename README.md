@@ -1,293 +1,277 @@
-## Overview
+# Blue Sky Meeting
 
-This project uses the following tech stack:
-- Vite
-- Typescript
-- React Router v7 (all imports from `react-router` instead of `react-router-dom`)
-- React 19 (for frontend components)
-- Tailwind v4 (for styling)
-- Shadcn UI (for UI components library)
-- Lucide Icons (for icons)
-- Convex (for backend & database)
-- Convex Auth (for authentication)
-- Framer Motion (for animations)
-- Three js (for 3d models)
+**A sealed room for the ideas you haven't said out loud yet.**
 
-All relevant files live in the 'src' directory.
+Blue Sky Meeting (singular) is a working prototype of a meeting room for
+unannounced ideas. Put a half-formed thing on the table, hear everyone before
+anyone grades it, and decide what deserves to be carried — with a human
+authorizing every step.
 
-Use bun for the package manager.
+> **Status: v0.1 — single-owner prototype.**
+> No model is wired. No public sharing or publication gate yet. The UI has been
+> typechecked and the backend pushed, but it has not been visually verified in the
+> authoring workspace. Read [Privacy & safety](#privacy--safety-current-limits)
+> before exposing it to anyone.
 
-## Setup
+---
 
-This project is set up already and running on a cloud environment, as well as a convex development in the sandbox.
+## The protocol in one pass
 
-## Environment Variables
+| Stage | What the room allows |
+| --- | --- |
+| **Open floor** | Contributions go into a sealed pool. The server does not send titles, authors, or order to the client. Room-level sources can be declared. Nothing is scored. |
+| **Reveal** | Closing the floor releases everything at once, names attached. The reveal is permanent; reopening the floor later never re-blinds what the room has already seen. |
+| **Assessment** | Score, build on an idea, breed two ideas, record board readings, take a Can/Might/Ought position, open arena bouts, declare sources. No assignments. |
+| **Authorized** | Assign a steward with a brief (**explore** or **deliver**) and a **bar** (Provisional / Viable / Runaway). Closed to new entries. |
 
-The project is set up with project specific CONVEX_DEPLOYMENT and VITE_CONVEX_URL environment variables on the client side.
+Stages move one step at a time, in either direction. A human moves them. The host
+never does.
 
-The convex server has a separate set of environment variables that are accessible by the convex backend.
+---
 
-Currently, these variables include auth-specific keys: JWKS, JWT_PRIVATE_KEY, and SITE_URL.
+## The Future Runscore
 
-
-# Using Authentication (Important!)
-
-You must follow these conventions when using authentication.
-
-## Auth is already set up.
-
-All convex authentication functions are already set up. The auth currently uses email OTP and anonymous users, but can support more.
-
-The email OTP configuration is defined in `src/convex/auth/emailOtp.ts`. DO NOT MODIFY THIS FILE.
-
-Also, DO NOT MODIFY THESE AUTH FILES: `src/convex/auth.config.ts` and `src/convex/auth.ts`.
-
-## Using Convex Auth on the backend
-
-On the `src/convex/users.ts` file, you can use the `getCurrentUser` function to get the current user's data.
-
-## Using Convex Auth on the frontend
-
-The `/auth` page is already set up to use auth. Navigate to `/auth` for all log in / sign up sequences.
-
-You MUST use this hook to get user data. Never do this yourself without the hook:
-```typescript
-import { useAuth } from "@/hooks/use-auth";
-
-const { isLoading, isAuthenticated, user, signIn, signOut } = useAuth();
-```
-
-## Protected Routes
-
-The starter `/dashboard` route is protected with `RequireAuth`. Extend that page
-for the product's authenticated experience, and reuse `RequireAuth` when adding
-another protected route — do NOT hand-roll a redirect to `/auth`, since landing
-on a bare sign-in form with no explanation of what was blocked is confusing.
-
-`RequireAuth` states the block on the page the visitor asked for and sends them
-to `/auth?returnTo=<current route>` when they choose to sign in, so they come
-back to it. Pass `title` and `description` to say what the page is:
-
-```tsx
-<Route
-  path="/dashboard"
-  element={
-    <RequireAuth
-      title="Sign in to view your dashboard"
-      description="Your projects and settings live here."
-    >
-      <Dashboard />
-    </RequireAuth>
-  }
-/>
-```
-
-Pass `redirectImmediately` for a route where bouncing straight to `/auth` really
-is better.
-
-## Auth Page
-
-The auth page is defined in `src/pages/Auth.tsx`. Send sign-in and sign-up actions
-to `/auth`.
-
-## Authorization
-
-You can perform authorization checks on the frontend and backend.
-
-On the frontend, you can use the `useAuth` hook to get the current user's data and authentication state.
-
-You should also be protecting queries, mutations, and actions at the base level, checking for authorization securely.
-
-## Adding a redirect after auth
-
-The `/auth` route in `src/main.tsx` redirects to `/dashboard` by default. If the
-product's main authenticated route is different, update `redirectAfterAuth` to
-that route. A validated same-origin `returnTo` query parameter takes priority so
-users can resume the protected page they originally requested. Never leave an
-authenticated product redirecting back to the public landing page.
-
-## Complete authenticated products
-
-When the requested product implies accounts, a workspace, a dashboard, or other
-signed-in functionality, the task is not complete with only a landing page and
-auth form. Build the main authenticated experience, protect its route, and verify
-that signing in reaches it.
-
-# Frontend Conventions
-
-You will be using the Vite frontend with React 19, Tailwind v4, and Shadcn UI.
-
-Generally, pages should be in the `src/pages` folder, and components should be in the `src/components` folder.
-
-Shadcn primitives are located in the `src/components/ui` folder and should be used by default.
-
-## Page routing
-
-Your page component should go under the `src/pages` folder.
-
-When adding a page, update the react router configuration in `src/main.tsx` to include the new route you just added.
-
-## Shad CN conventions
-
-Follow these conventions when using Shad CN components, which you should use by default.
-- Remember to use "cursor-pointer" to make the element clickable
-- For title text, use the "tracking-tight font-bold" class to make the text more readable
-- Always make apps MOBILE RESPONSIVE. This is important
-- AVOID NESTED CARDS. Try and not to nest cards, borders, components, etc. Nested cards add clutter and make the app look messy.
-- AVOID SHADOWS. Avoid adding any shadows to components. stick with a thin border without the shadow.
-- Avoid skeletons; instead, use the loader2 component to show a spinning loading state when loading data.
-
-
-## Landing Pages
-
-You must always create good-looking designer-level styles to your application. 
-- Make it well animated and fit a certain "theme", ie neo brutalist, retro, neumorphism, glass morphism, etc
-
-Use known images and emojis from online.
-
-If the user is logged in already, show the get started button to say "Dashboard" or "Profile" instead to take them there.
-
-## Responsiveness and formatting
-
-Make sure pages are wrapped in a container to prevent the width stretching out on wide screens. Always make sure they are centered aligned and not off-center.
-
-Always make sure that your designs are mobile responsive. Verify the formatting to ensure it has correct max and min widths as well as mobile responsiveness.
-
-- Always create sidebars for protected dashboard pages and navigate between pages
-- Always create navbars for landing pages
-- On these bars, the created logo should be clickable and redirect to the index page
-
-## Animating with Framer Motion
-
-You must add animations to components using Framer Motion. It is already installed and configured in the project.
-
-To use it, import the `motion` component from `framer-motion` and use it to wrap the component you want to animate.
-
-
-### Other Items to animate
-- Fade in and Fade Out
-- Slide in and Slide Out animations
-- Rendering animations
-- Button clicks and UI elements
-
-Animate for all components, including on landing page and app pages.
-
-## Three JS Graphics
-
-Your app comes with three js by default. You can use it to create 3D graphics for landing pages, games, etc.
-
-
-## Colors
-
-You can override colors in: `src/index.css`
-
-This uses the oklch color format for tailwind v4.
-
-Always use these color variable names.
-
-Make sure all ui components are set up to be mobile responsive and compatible with both light and dark mode.
-
-Set theme using `dark` or `light` variables at the parent className.
-
-## Styling and Theming
-
-When changing the theme, always change the underlying theme of the shad cn components app-wide under `src/components/ui` and the colors in the index.css file.
-
-Avoid hardcoding in colors unless necessary for a use case, and properly implement themes through the underlying shad cn ui components.
-
-When styling, ensure buttons and clickable items have pointer-click on them (don't by default).
-
-Always follow a set theme style and ensure it is tuned to the user's liking.
-
-## Toasts
-
-You should always use toasts to display results to the user, such as confirmations, results, errors, etc.
-
-Use the shad cn Sonner component as the toaster. For example:
+A single 0–100 reading of whether an idea could survive being run in the future.
+Each pass scores four dimensions from 0–10; the idea's score is the mean of every
+seat's pass, so one confident voice cannot manufacture a high number.
 
 ```
-import { toast } from "sonner"
-
-import { Button } from "@/components/ui/button"
-export function SonnerDemo() {
-  return (
-    <Button
-      variant="outline"
-      onClick={() =>
-        toast("Event has been created", {
-          description: "Sunday, December 03, 2023 at 9:00 AM",
-          action: {
-            label: "Undo",
-            onClick: () => console.log("Undo"),
-          },
-        })
-      }
-    >
-      Show Toast
-    </Button>
-  )
-}
+score = 10 × (0.25·novelty + 0.35·warrant + 0.20·reach + 0.20·(10 − drag))
 ```
 
-Remember to import { toast } from "sonner". Usage: `toast("Event has been created.")`
+| Dimension | Weight | Question |
+| --- | --- | --- |
+| Novelty | 25% | Has this been said before? |
+| Warrant | 35% | What stands behind the claim? |
+| Reach | 20% | Can it touch anything that already exists? |
+| Drag | 20% (inverse) | What does it cost to move? |
 
-## Dialogs
+Bands: **Dormant** 0–39, **Provisional** 40–64, **Viable** 65–84, **Runaway** 85–100.
 
-Always ensure your larger dialogs have a scroll in its content to ensure that its content fits the screen size. Make sure that the content is not cut off from the screen.
+Every pass also makes one non-numeric call: **steady bet** or **asymmetric bet**
+(precedent says it probably fails; the upside is not linear). Symmetry flags are
+counted beside the score and never added to it.
 
-Ideally, instead of using a new page, use a Dialog instead. 
+---
 
-# Using the Convex backend
+## What's in the room
 
-You will be implementing the convex backend. Follow your knowledge of convex and the documentation to implement the backend.
+- **Declared sources** — links or uploaded files, attached to the room or an idea,
+  labelled **Prior art** or **Context**, attributed, and removable. Files live in
+  Convex storage. Deleting an idea or room deletes its files.
+- **The board** — six chairs: Chair, Advocate, Operator, Skeptic, Market, Cameo.
+  Anyone can sit in one; readings are signed, revisable, and never scored.
+- **The arena** — two ideas, one question, one ballot per seat with a case for and a
+  case against. A human calls the bout with a rationale; the dissent stays attached
+  and the losing idea stays on the table.
+- **Breeding** — combine two ideas into a third. The hybrid keeps both lineages and
+  inherits no score.
+- **Bootstraps** — every idea can name the asset it actually pulls on. A bootstrap is
+  not a virtue; it is a thing you can point at.
+- **Can / Might / Ought** — the score answers *Can*. Seats record a pair of positions
+  on *Might it happen?* and *Ought it exist?* Tallied, never averaged, never folded
+  into the score.
+- **The Bestiary** — the shelf for ideas that must be kept but not built. A reason, a
+  keeper, and a review date. Off the table and out of the mean; still readable, still
+  restorable, never deleted.
+- **Company, not consensus** — one nod and one pushback per seat, at equal weight and
+  identical styling, never affecting the score or the order.
 
-## The Convex Schema
+---
 
-You must correctly follow the convex schema implementation.
+## Principles
 
-The schema is defined in `src/convex/schema.ts`.
+1. **Hear everything before grading anything.** The floor closes before the first pass.
+2. **The machine advises; a human authorizes.** The host never votes, assigns, or calls
+   a bout.
+3. **One seat, one pass.** Repeating yourself replaces your position instead of
+   stacking it.
+4. **Advice and evidence are different objects.** Readings, ballots, nods, and
+   positions are recorded; only assessments move the score.
+5. **Nothing is deleted for losing.** Low scores stay on the record; dangerous ideas go
+   to the Bestiary with a label.
+6. **Declared, not smuggled.** Anything brought in from outside is listed, labelled,
+   and attributable.
 
-Do not include the `_id` and `_creationTime` fields in your queries (it is included by default for each table).
-Do not index `_creationTime` as it is indexed for you. Never have duplicate indexes.
+---
 
+## Stack
 
-## Convex Actions: Using CRUD operations
+- **Frontend:** Vite 7, React 19, TypeScript, React Router 7, Tailwind CSS v4,
+  shadcn/ui, Framer Motion, Lucide
+- **Backend / database:** Convex (queries, mutations, file storage)
+- **Auth:** Convex Auth (email OTP and anonymous users)
+- **Package manager:** Bun
+- **Notifications:** Sonner
 
-When running anything that involves external connections, you must use a convex action with "use node" at the top of the file.
+---
 
-You cannot have queries or mutations in the same file as a "use node" action file. Thus, you must use pre-built queries and mutations in other files.
+## Data model
 
-You can also use the pre-installed internal crud functions for the database:
+| Table | Purpose |
+| --- | --- |
+| `rooms` | A sealed room: owner, title, premise, stage, permanent `revealed` flag |
+| `ideas` | Contributions: title, thesis, author, track, lineage (`parentId`, `bredFrom`), bootstrap, disposition, steward, brief, bar |
+| `assessments` | One scoring pass per seat: four dimensions, note, asymmetric flag |
+| `nods` | One nod or pushback per seat per idea |
+| `sources` | Declared links/files, room- or idea-scoped, with prior/context label |
+| `readings` | A seat speaking from a board chair |
+| `bouts` | A head-to-head question, its sides, status, call, and rationale |
+| `boutVotes` | One ballot per seat per bout, with for/against cases |
+| `positions` | One Might/Ought pair per seat per idea |
+| `users` | Convex Auth user records |
 
-```ts
-// in convex/users.ts
-import { crud } from "convex-helpers/server/crud";
-import schema from "./schema.ts";
+`src/convex/_generated` is gitignored. Run codegen before typechecking a fresh clone.
 
-export const { create, read, update, destroy } = crud(schema, "users");
+---
 
-// in some file, in an action:
-const user = await ctx.runQuery(internal.users.read, { id: userId });
+## Repository layout
 
-await ctx.runMutation(internal.users.update, {
-  id: userId,
-  patch: {
-    status: "inactive",
-  },
-});
+```
+src/
+  convex/           schema, queries, mutations, protocol, runscore, seed data
+  components/       room instruments, dialogs, app shell, UI primitives
+  pages/            Landing, Auth, Dashboard, Room, NotFound
+  hooks/            auth hook
+  main.tsx          router and providers
+  index.css         theme tokens and print/room styles
+public/             logo, manifest
 ```
 
+Key documents:
 
-## Common Convex Mistakes To Avoid
+- [ROADMAP.md](./ROADMAP.md) — what's next, what's deliberately not planned
+- [CONTRIBUTIONS.md](./CONTRIBUTIONS.md) — who asked for what, what the agent
+  proposed, the decision record, and the verification ledger
 
-When using convex, make sure:
-- Document IDs are referenced as `_id` field, not `id`.
-- Document ID types are referenced as `Id<"TableName">`, not `string`.
-- Document object types are referenced as `Doc<"TableName">`.
-- Keep schemaValidation to false in the schema file.
-- You must correctly type your code so that it passes the type checker.
-- You must handle null / undefined cases of your convex queries for both frontend and backend, or else it will throw an error that your data could be null or undefined.
-- Always use the `@/folder` path, with `@/convex/folder/file.ts` syntax for importing convex files.
-- This includes importing generated files like `@/convex/_generated/server`, `@/convex/_generated/api`
-- Remember to import functions like useQuery, useMutation, useAction, etc. from `convex/react`
-- NEVER have return type validators.
+---
+
+## Local development
+
+Requirements: Bun, a Convex account (or a self-hosted Convex deployment), and the
+Convex CLI via `bunx`.
+
+```bash
+bun install
+cp .env.example .env.local
+# fill in VITE_CONVEX_URL and CONVEX_DEPLOYMENT
+bunx convex dev        # pushes functions, runs codegen, watches for changes
+bun run dev            # Vite dev server
+```
+
+In a non-interactive environment (CI, this workspace), use:
+
+```bash
+bunx convex dev --once
+bun tsc -b --noEmit
+```
+
+Other scripts: `bun run lint`, `bun run format`, `bun run build`, `bun run preview`.
+
+The Convex deployment needs its own environment for auth. The template expects
+`JWKS`, `JWT_PRIVATE_KEY`, and `SITE_URL` on the deployment; keep them out of the
+client and out of git. This repo does not include the email OTP provider setup beyond
+what is in `src/convex/auth/`; do not modify `emailOtp.ts`, `auth.config.ts`, or
+`auth.ts` without understanding the auth flow.
+
+### Environment variables
+
+| Variable | Where | Purpose |
+| --- | --- | --- |
+| `VITE_CONVEX_URL` | client / `.env.local` | Convex deployment URL |
+| `CONVEX_DEPLOYMENT` | CLI / `.env.local` | Deployment used by `convex dev` |
+| `CONVEX_SITE_URL` | client / `.env.local` | Auth site URL |
+| `JWKS` | Convex deployment | Auth key set |
+| `JWT_PRIVATE_KEY` | Convex deployment | Auth signing key |
+| `SITE_URL` | Convex deployment | Auth redirect origin |
+| `VLY_INTEGRATION_KEY` | Convex deployment (optional) | Host integration gateway; **not used by the current app** |
+
+`.env.local` is gitignored. Never commit deployment keys.
+
+---
+
+## Privacy & safety (current limits)
+
+This is a prototype, and the privacy language must match the implementation.
+
+- **Single-owner.** Every room is readable and writable only by the account that
+  created it. There are no invites, guest seats, reader roles, or shareable links yet.
+  The "open as open source, private as closed doors" promise is **not implemented**.
+- **Access-controlled, not end-to-end encrypted.** A Convex-hosted room is readable by
+  the deployment operator. Do not describe it as E2E.
+- **No publication gate.** There is no public gallery, no moderation queue, no
+  reporting flow, and no contributor consent flow. Do not expose rooms publicly until
+  those exist.
+- **No model.** Syntax AI is copy and a role. No provider key is configured and no
+  inference is run. Board readings and asymmetry calls are entered by seats.
+- **Uploads** go to Convex storage. There is no virus scanning and no file-type
+  allowlist; keep uploads small and trusted.
+- **Illegal and gray ideas** can be recorded, scored as ideas, marked *Ought:
+  shouldn't*, and shelved in the Bestiary. The app is not a moderation system, and it
+  is not a place to operationalize harm. See `CONTRIBUTIONS.md` for the design
+  position.
+
+---
+
+## Verification
+
+Passed in the authoring workspace:
+
+```bash
+bun convex dev --once     # schema + functions pushed
+bun tsc -b --noEmit       # exit 0
+```
+
+Also checked directly: the protocol capability matrix (sealed → nothing visible;
+open → contribute only; assessment → score/build-on/breed/deliberate; authorized →
+score/assign) and the runscore weights/bands.
+
+**Not verified:** browser interaction, uploads, mobile layout, dark mode, deletion
+cascades under real data, multi-user permissions (none exist), production build, and
+any model call. There are no screenshots. Treat the UI as compiled, not proven.
+
+---
+
+## Publishing this repository
+
+This authoring workspace blocks `git` and GitHub commands and has **no remote
+configured**, so the agent cannot commit or push from here. Export or download the
+workspace, then run this from your machine:
+
+```bash
+git status                       # confirm .env.local is not staged
+git add .
+git commit -m "Blue Sky Meeting v0.1: sealed ideation room with the Future Runscore"
+git branch -M main
+git remote add origin git@github.com:<your-account>/blue-sky-meeting.git
+git push -u origin main
+```
+
+Or, with the GitHub CLI:
+
+```bash
+gh repo create blue-sky-meeting --public --source=. --remote=origin --push
+```
+
+Choose public or private deliberately. If public, remove the seeded example's
+personal-sounding names if you do not want them in a demo, and confirm no deployment
+identifiers or keys are in the tree. `.gitignore` already excludes `.env.local`,
+`node_modules`, `dist`, and `src/convex/_generated`.
+
+If the host offers a version-control integration, use it instead; this workspace's
+`.git` has no remote and the terminal refuses git operations.
+
+---
+
+## License
+
+No license has been chosen yet. Until a `LICENSE` file is added, default copyright
+applies. The recommendation on record is **MIT for the code** and **CC BY-SA 4.0 for
+the protocol text** — open-source the institution, keep deployment keys private.
+
+---
+
+## Name
+
+**Blue Sky Meeting**, singular. The room is the container; the brand is the meeting.
+The "Future Runscore" is the instrument, not the product.

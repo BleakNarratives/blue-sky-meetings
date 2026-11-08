@@ -1,7 +1,8 @@
 {
-  "name": "vite-template",
+  "name": "blue-sky-meeting",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "A sealed room for unannounced ideas, with the Future Runscore and a human authorization gate.",
   "type": "module",
   "scripts": {
     "dev": "vite",

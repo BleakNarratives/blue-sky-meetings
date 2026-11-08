@@ -462,7 +462,7 @@ function RunscoreSection() {
 
           <div className="mt-4 flex flex-col gap-2 border border-border bg-secondary/60 p-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="font-mono text-[0.65rem] uppercase leading-5 tracking-[0.14em] text-muted-foreground">
-              runscore = (novelty·25 + warrant·35 + reach·20 + (10 − drag)·20) · 10
+              runscore = 10 × (0.25·novelty + 0.35·warrant + 0.20·reach + 0.20·(10 − drag))
             </p>
             <span className="label-sm text-foreground">0 — 100</span>
           </div>
