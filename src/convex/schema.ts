@@ -24,6 +24,22 @@ export const contributorKindValidator = v.union(
 );
 export type ContributorKind = Infer<typeof contributorKindValidator>;
 
+// Where the meeting is in its lifecycle. See protocol.ts for the copy and
+// the rules for what each stage allows.
+export const stageValidator = v.union(
+  v.literal("open"),
+  v.literal("assessment"),
+  v.literal("authorized"),
+);
+
+// What kind of contribution this is. Brands and names are first-class here.
+export const trackValidator = v.union(
+  v.literal("concept"),
+  v.literal("brand"),
+  v.literal("market"),
+  v.literal("wild"),
+);
+
 const schema = defineSchema(
   {
     // default auth tables using convex auth.
@@ -46,6 +62,8 @@ const schema = defineSchema(
       title: v.string(),
       premise: v.string(),
       isExample: v.optional(v.boolean()),
+      // absent on rooms created before stages existed; treat as "open"
+      stage: v.optional(stageValidator),
     }).index("by_owner", ["ownerId"]),
 
     // An unannounced proposal, put on the table by a human or an agent.
@@ -55,6 +73,12 @@ const schema = defineSchema(
       thesis: v.string(),
       contributor: v.string(),
       kind: contributorKindValidator,
+      track: v.optional(trackValidator),
+      // set when this is someone building on an earlier contribution
+      parentId: v.optional(v.id("ideas")),
+      // assigned only after the room is authorized
+      steward: v.optional(v.string()),
+      stewardKind: v.optional(contributorKindValidator),
     }).index("by_room", ["roomId"]),
 
     // One scoring pass over one idea: four 0–10 dimensions plus rationale.

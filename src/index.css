@@ -43,9 +43,9 @@
 }
 
 /* ------------------------------------------------------------------
-   Blue Sky Meetings — "this has nothing to do with weather" theme.
-   Warm agenda paper, black ink, one acid highlighter, hairline rules.
-   Institutional on purpose. Deadpan on purpose.
+   Blue Sky Meeting — agenda paper for holy ground.
+   Warm paper, black ink, one acid highlighter, hairline rules.
+   Loose on the surface, institutional underneath. Deadpan on purpose.
    ------------------------------------------------------------------ */
 @theme inline {
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
@@ -109,8 +109,10 @@
 }
 
 .dark {
-  --paper: oklch(0.185 0.012 78);
-  --ink: oklch(0.958 0.011 88);
+  /* Ink and paper do not invert: they are literal stock colors, and the
+     highlighter surfaces always need dark ink on top. */
+  --paper: oklch(0.958 0.011 88);
+  --ink: oklch(0.185 0.012 78);
   --highlight: oklch(0.885 0.185 118);
 
   --background: oklch(0.155 0.009 78);

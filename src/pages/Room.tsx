@@ -1,11 +1,18 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { AppShell } from "@/components/app-shell";
 import { Meta, Seal } from "@/components/brand";
-import { AddIdeaDialog, AssessDialog, type AssessTarget } from "@/components/room-forms";
+import {
+  AddIdeaDialog,
+  AssessDialog,
+  AssignDialog,
+  type AssessTarget,
+  type StewardTarget,
+} from "@/components/room-forms";
+import { StageChip, StageRail } from "@/components/stage-rail";
 import {
   BandChip,
   BandLadder,
@@ -17,8 +24,18 @@ import {
 } from "@/components/runscore-ui";
 import { Button } from "@/components/ui/button";
 import { DIMENSIONS, bandFor } from "@/convex/runscore";
+import { allows, type Stage, trackMeta } from "@/convex/protocol";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, Plus, Scale } from "lucide-react";
+import {
+  ArrowLeft,
+  CornerDownRight,
+  Loader2,
+  Lock,
+  Plus,
+  Scale,
+  UserRoundCheck,
+} from "lucide-react";
+import { toast } from "sonner";
 
 function RoomSkeleton() {
   return (
@@ -35,10 +52,18 @@ export default function Room() {
     api.rooms.get,
     roomId ? { roomId: roomId as Id<"rooms"> } : "skip",
   );
+  const setStage = useMutation(api.rooms.setStage);
 
   const [addOpen, setAddOpen] = useState(false);
+  const [iterateParent, setIterateParent] = useState<{
+    _id: Id<"ideas">;
+    title: string;
+  } | null>(null);
   const [assessTarget, setAssessTarget] = useState<AssessTarget | null>(null);
   const [assessOpen, setAssessOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<StewardTarget | null>(null);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [stagePending, setStagePending] = useState(false);
 
   if (data === undefined) {
     return (
@@ -57,8 +82,8 @@ export default function Room() {
           <Seal>Access</Seal>
           <h1 className="display mt-5 text-4xl">This room isn&rsquo;t yours.</h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            The room either does not exist or belongs to another seat. Rooms are
-            sealed, not shared.
+            The room either doesn&rsquo;t exist or belongs to another seat. Rooms
+            are sealed, not shared.
           </p>
           <Button asChild className="mt-6">
             <Link to="/dashboard">Back to the board</Link>
@@ -71,6 +96,41 @@ export default function Room() {
   const { room, stats, ideas } = data;
   const averageBand =
     stats.averageScore === null ? null : bandFor(stats.averageScore);
+
+  const canContribute = allows(room.stage, "contribute");
+  const canScore = allows(room.stage, "score");
+  const canAssign = allows(room.stage, "assign");
+
+  const changeStage = async (next: Stage) => {
+    setStagePending(true);
+    try {
+      await setStage({ roomId: room._id, stage: next });
+      if (next === "assessment") {
+        toast("The floor is closed", {
+          description: "Scoring is open. Nobody is assigned yet.",
+        });
+      } else if (next === "authorized") {
+        toast("Authorized", {
+          description: "You decided. Work can be assigned now.",
+        });
+      } else {
+        toast("Floor reopened", {
+          description: "Nothing is graded until it closes again.",
+        });
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "The stage did not change.",
+      );
+    } finally {
+      setStagePending(false);
+    }
+  };
+
+  const openAdd = (parent: { _id: Id<"ideas">; title: string } | null) => {
+    setIterateParent(parent);
+    setAddOpen(true);
+  };
 
   return (
     <AppShell>
@@ -88,17 +148,18 @@ export default function Room() {
             The board
           </Link>
 
-          <div className="mt-6 flex flex-col gap-6 border-b border-border pb-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="mt-6 flex flex-col gap-6 pb-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-3">
                 <Seal>Sealed room</Seal>
+                <StageChip stage={room.stage} />
                 <Meta>
                   {stats.ideaCount} {stats.ideaCount === 1 ? "idea" : "ideas"} ·{" "}
                   {stats.scoredCount} scored
                 </Meta>
                 {room.isExample && (
                   <span className="label-sm border border-border px-1.5 py-0.5 text-muted-foreground">
-                    Example
+                    Worked example
                   </span>
                 )}
               </div>
@@ -113,13 +174,26 @@ export default function Room() {
             </div>
 
             <div className="flex shrink-0 flex-wrap items-center gap-2">
-              <Button onClick={() => setAddOpen(true)}>
-                <Plus className="size-3.5" />
-                Put an idea on the table
-              </Button>
+              {canContribute ? (
+                <Button onClick={() => openAdd(null)}>
+                  <Plus className="size-3.5" />
+                  Put something down
+                </Button>
+              ) : (
+                <span className="label inline-flex items-center gap-2 border border-border px-2.5 py-2 text-muted-foreground">
+                  <Lock className="size-3" />
+                  Floor closed
+                </span>
+              )}
             </div>
           </div>
         </motion.div>
+
+        <StageRail
+          stage={room.stage}
+          pending={stagePending}
+          onSetStage={changeStage}
+        />
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_312px] lg:gap-10">
           <aside className="min-w-0 lg:order-2 lg:self-start">
@@ -153,7 +227,7 @@ export default function Room() {
                   />
                   <p className="mt-3 text-[0.75rem] leading-5 text-muted-foreground">
                     {stats.averageScore === null
-                      ? "No pass has been recorded yet. The table is allowed to sit unscored."
+                      ? "No pass has been recorded yet. The room is allowed to sit unscored."
                       : "Averages every scored idea once. Unscored ideas are held apart, not counted against the room."}
                   </p>
                 </div>
@@ -174,6 +248,18 @@ export default function Room() {
                 <div className="border-t border-border px-4 py-4">
                   <BandLadder counts={stats.bands} />
                 </div>
+              </div>
+
+              <div className="mt-4 border border-border bg-secondary/50 px-4 py-4">
+                <p className="label flex items-center gap-2 text-muted-foreground">
+                  <Lock className="size-3.5" />
+                  Inbound closed · Outbound closed
+                </p>
+                <p className="mt-2 text-[0.75rem] leading-5 text-muted-foreground">
+                  Nothing comes in that existed before the meeting. Nothing leaves
+                  that was made in it. Prior knowledge has to be declared, not
+                  smuggled.
+                </p>
               </div>
 
               <div className="mt-4 border border-border bg-secondary/50 px-4 py-4">
@@ -206,13 +292,24 @@ export default function Room() {
                 <div className="flex flex-col items-start gap-4 bg-background/90 px-6 py-10">
                   <Seal>Nothing on the table</Seal>
                   <p className="max-w-[26rem] text-sm leading-6 text-muted-foreground">
-                    An empty room is still a room. Put the first unannounced idea
-                    in and it will sit here unscored until someone makes a case.
+                    An empty room is still a room. Put the first thing down — the
+                    fragment, the complaint, the name that might be a slogan. It
+                    will sit here unscored until the floor closes.
                   </p>
-                  <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
-                    <Plus className="size-3.5" />
-                    Add the first idea
-                  </Button>
+                  {canContribute ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openAdd(null)}
+                    >
+                      <Plus className="size-3.5" />
+                      Put the first thing down
+                    </Button>
+                  ) : (
+                    <p className="label-sm text-muted-foreground">
+                      The floor is closed and nothing was recorded.
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (
@@ -220,6 +317,7 @@ export default function Room() {
                 {ideas.map((idea, index) => {
                   const band = idea.bandKey ? bandMeta(idea.bandKey) : null;
                   const notes = idea.assessments.filter((a) => a.note);
+                  const track = trackMeta(idea.track);
                   return (
                     <motion.article
                       key={idea._id}
@@ -236,6 +334,9 @@ export default function Room() {
                                 ? "——"
                                 : `#${String(index + 1).padStart(2, "0")}`}
                             </span>
+                            <span className="label-sm border border-border px-1.5 py-0.5 text-muted-foreground">
+                              {track.label}
+                            </span>
                             <span className="label text-foreground">
                               {idea.contributor}
                             </span>
@@ -247,6 +348,12 @@ export default function Room() {
                           {idea.thesis && (
                             <p className="mt-1.5 max-w-[34rem] text-[0.8125rem] leading-6 text-muted-foreground">
                               {idea.thesis}
+                            </p>
+                          )}
+                          {idea.parentTitle && (
+                            <p className="label-sm mt-2 flex items-center gap-1.5 text-muted-foreground">
+                              <CornerDownRight className="size-3" />
+                              Builds on {idea.parentTitle}
                             </p>
                           )}
                         </div>
@@ -311,22 +418,61 @@ export default function Room() {
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 sm:px-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 sm:px-5">
                         <span className="label-sm text-muted-foreground">
                           {idea.assessments.length}{" "}
-                          {idea.assessments.length === 1 ? "seat scored" : "seats scored"}
+                          {idea.assessments.length === 1
+                            ? "seat scored"
+                            : "seats scored"}
                           {band && ` · ${band.label.toLowerCase()}`}
                         </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setAssessTarget(idea);
-                            setAssessOpen(true);
-                          }}
-                        >
-                          Score this idea
-                        </Button>
+
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          {idea.steward && (
+                            <span className="label-sm mr-1 inline-flex items-center gap-1.5 text-foreground">
+                              <UserRoundCheck className="size-3" />
+                              Steward · {idea.steward}
+                            </span>
+                          )}
+
+                          {canContribute && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                openAdd({ _id: idea._id, title: idea.title })
+                              }
+                            >
+                              Build on this
+                            </Button>
+                          )}
+
+                          {canScore && (
+                            <Button
+                              size="sm"
+                              variant={idea.score === null ? "default" : "outline"}
+                              onClick={() => {
+                                setAssessTarget(idea);
+                                setAssessOpen(true);
+                              }}
+                            >
+                              Score this idea
+                            </Button>
+                          )}
+
+                          {canAssign && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setAssignTarget(idea);
+                                setAssignOpen(true);
+                              }}
+                            >
+                              {idea.steward ? "Reassign" : "Assign steward"}
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </motion.article>
                   );
@@ -335,14 +481,23 @@ export default function Room() {
             )}
 
             <p className="mt-5 font-mono text-[0.625rem] uppercase leading-5 tracking-[0.14em] text-muted-foreground">
-              A runscore is a reading, not permission. Nothing here authorizes a
-              change outside the room.
+              {canScore
+                ? "A runscore is a reading, not permission. Nothing here authorizes a change outside the room."
+                : "This room is still listening. Scoring opens once the floor closes."}
             </p>
           </section>
         </div>
       </div>
 
-      <AddIdeaDialog open={addOpen} onOpenChange={setAddOpen} roomId={room._id} />
+      <AddIdeaDialog
+        open={addOpen}
+        onOpenChange={(open) => {
+          setAddOpen(open);
+          if (!open) setIterateParent(null);
+        }}
+        roomId={room._id}
+        parent={iterateParent}
+      />
       <AssessDialog
         open={assessOpen}
         onOpenChange={(open) => {
@@ -350,6 +505,14 @@ export default function Room() {
           if (!open) setAssessTarget(null);
         }}
         idea={assessTarget}
+      />
+      <AssignDialog
+        open={assignOpen}
+        onOpenChange={(open) => {
+          setAssignOpen(open);
+          if (!open) setAssignTarget(null);
+        }}
+        idea={assignTarget}
       />
     </AppShell>
   );

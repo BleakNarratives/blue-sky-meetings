@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AppShell } from "@/components/app-shell";
 import { Meta, Seal } from "@/components/brand";
+import { StageChip } from "@/components/stage-rail";
 import { NewRoomDialog } from "@/components/room-forms";
 import {
   BandChip,
@@ -63,8 +64,9 @@ export default function Dashboard() {
     setSeeding(true);
     try {
       const roomId = await createExample({});
-      toast("Example room sealed", {
-        description: "Four ideas, eleven scoring passes, one disagreement kept.",
+      toast("Example room opened", {
+        description:
+          "Five ideas, an iteration, twelve scoring passes, and one disagreement kept intact.",
       });
       navigate(`/room/${roomId}`);
     } catch (error) {
@@ -97,9 +99,9 @@ export default function Dashboard() {
               {firstName ? `Welcome back, ${firstName}.` : "What hasn't been said yet."}
             </h1>
             <p className="mt-3 max-w-[34rem] text-sm leading-6 text-muted-foreground">
-              Rooms hold ideas before they are announced anywhere else. Score what
-              is on the table, keep the disagreement, and let the runscore decide
-              what deserves to run.
+              Every room opens with an open floor: everyone gets heard before
+              anything is judged. Then the room scores what could survive, and you
+              decide what actually gets worked on.
             </p>
           </div>
           <Button onClick={() => setNewRoomOpen(true)} className="shrink-0 self-start">
@@ -139,15 +141,16 @@ export default function Dashboard() {
                     The table is clear.
                   </h2>
                   <p className="mt-3 max-w-[32rem] text-sm leading-6 text-muted-foreground">
-                    Name a room, state what it is allowed to think about, and put
-                    the first unannounced idea on the table. Or open the example
-                    room to see how a runscore reads when seats disagree.
+                    Start with a room and an open floor. Nothing gets graded until
+                    everyone has had their say — including the half-formed thing
+                    you almost didn&rsquo;t bring. Or open the worked example and
+                    read how a runscore behaves when seats disagree.
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Button onClick={() => setNewRoomOpen(true)}>
                     <Plus className="size-3.5" />
-                    Open your first room
+                    Open the floor
                   </Button>
                   <Button
                     variant="outline"
@@ -155,7 +158,7 @@ export default function Dashboard() {
                     disabled={seeding}
                   >
                     {seeding && <Loader2 className="size-3.5 animate-spin" />}
-                    Start from the example
+                    See a worked example
                   </Button>
                 </div>
               </div>
@@ -180,7 +183,8 @@ export default function Dashboard() {
                           Room {String(index + 1).padStart(2, "0")}
                         </span>
                         <Meta>
-                          {room.ideaCount} {room.ideaCount === 1 ? "idea" : "ideas"}
+                          {room.ideaCount} {room.ideaCount === 1 ? "idea" : "ideas"} ·{" "}
+                          {room.scoredCount} scored
                         </Meta>
                       </div>
 
@@ -214,10 +218,8 @@ export default function Dashboard() {
                           segments={14}
                           className="mt-3"
                         />
-                        <div className="mt-3 flex items-center justify-between">
-                          <span className="label-sm text-muted-foreground">
-                            {room.scoredCount} of {room.ideaCount} scored
-                          </span>
+                        <div className="mt-3 flex items-center justify-between gap-2">
+                          <StageChip stage={room.stage} />
                           <span className="label flex items-center gap-1 text-foreground">
                             Enter
                             <ArrowUpRight className="size-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -242,7 +244,8 @@ export default function Dashboard() {
                 <span>
                   <span className="block text-sm font-medium">Another sealed room</span>
                   <span className="mt-1 block text-[0.8125rem] leading-6 text-muted-foreground">
-                    A new question that hasn&rsquo;t been asked out loud.
+                    A new question that hasn&rsquo;t been asked out loud, and an open
+                    floor to put it on.
                   </span>
                 </span>
               </motion.button>
@@ -260,7 +263,9 @@ export default function Dashboard() {
               <p className="mt-3 max-w-[32rem] text-[0.8125rem] leading-6 text-muted-foreground">
                 A room can hold a Runaway idea and a Dormant one at the same time.
                 That is the point. Nothing is removed for scoring low — it stays on
-                the record with the evidence, or lack of it, attached.
+                the record with the evidence, or lack of it, attached. Stages keep
+                the order honest: hear everything, score it, then authorize the
+                work.
               </p>
               <Button asChild variant="outline" size="sm" className="mt-5">
                 <Link to="/">

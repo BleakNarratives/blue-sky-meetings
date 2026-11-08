@@ -31,7 +31,7 @@ export function Brand({
     <Link
       to={to}
       className={cn("group flex items-center gap-2.5", className)}
-      aria-label="Blue Sky Meetings home"
+      aria-label="Blue Sky Meeting home"
     >
       <Mark className="transition-transform duration-300 group-hover:rotate-90" />
       <span className="leading-none">
@@ -39,7 +39,7 @@ export function Brand({
           Blue Sky
         </span>
         <span className="mt-1 block font-mono text-[0.72rem] uppercase tracking-[0.17em] text-muted-foreground">
-          Meetings
+          Meeting
         </span>
       </span>
     </Link>

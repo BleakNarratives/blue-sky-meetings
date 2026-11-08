@@ -12,6 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { bandFor, BAND_VAR } from "@/convex/runscore";
+import { stageMeta } from "@/convex/protocol";
 import { Link, useLocation, useNavigate } from "react-router";
 import { LayoutGrid, LogOut, Menu, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 type RoomSummary = {
   _id: string;
   title: string;
+  stage: string;
   ideaCount: number;
   scoredCount: number;
   topScore: number | null;
@@ -65,8 +67,8 @@ function RoomRow({
         )}
       </span>
       <span className="label-sm text-muted-foreground">
-        {room.ideaCount} {room.ideaCount === 1 ? "idea" : "ideas"} ·{" "}
-        {room.scoredCount} scored
+        {stageMeta(room.stage).label} · {room.ideaCount}{" "}
+        {room.ideaCount === 1 ? "idea" : "ideas"}
       </span>
     </Link>
   );
@@ -98,7 +100,7 @@ function SidebarBody({
       <div className="border-b border-sidebar-border px-5 py-5">
         <Brand />
         <p className="label-sm mt-3 text-muted-foreground">
-          Sealed ideation · v1
+          Sealed rooms · v1
         </p>
       </div>
 

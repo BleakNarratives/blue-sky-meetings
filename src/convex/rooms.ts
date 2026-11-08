@@ -9,6 +9,7 @@ import {
   type BandKey,
   type Dimensions,
 } from "./runscore";
+import { normaliseStage } from "./protocol";
 
 async function requireUserId(ctx: QueryCtx | MutationCtx): Promise<Id<"users">> {
   const userId = await getAuthUserId(ctx);
@@ -87,6 +88,7 @@ export const list = query({
         _id: room._id,
         title: room.title,
         premise: room.premise,
+        stage: normaliseStage(room.stage),
         createdAt: room._creationTime,
         ideaCount: ideas.length,
         scoredCount: scored.length,
@@ -118,6 +120,7 @@ export const get = query({
       .query("assessments")
       .withIndex("by_room", (q) => q.eq("roomId", roomId))
       .collect();
+    const byId = new Map(ideas.map((idea) => [idea._id, idea]));
 
     const rows = ideas.map((idea) => {
       const own = assessments
@@ -138,6 +141,11 @@ export const get = query({
         thesis: idea.thesis,
         contributor: idea.contributor,
         kind: idea.kind,
+        track: idea.track ?? "concept",
+        parentId: idea.parentId ?? null,
+        parentTitle: idea.parentId ? (byId.get(idea.parentId)?.title ?? null) : null,
+        steward: idea.steward ?? null,
+        stewardKind: idea.stewardKind ?? null,
         createdAt: idea._creationTime,
         score: reading?.score ?? null,
         bandKey: reading?.band.key ?? null,
@@ -178,6 +186,7 @@ export const get = query({
         _id: room._id,
         title: room.title,
         premise: room.premise,
+        stage: normaliseStage(room.stage),
         createdAt: room._creationTime,
         isExample: room.isExample === true,
       },
@@ -207,7 +216,41 @@ export const create = mutation({
       ownerId: userId,
       title: cleanTitle,
       premise: premise.trim().slice(0, 400),
+      stage: "open",
     });
+  },
+});
+
+/**
+ * Move the meeting one stage at a time. Forward: close the floor, then
+ * authorize. Backward: reopen for more hearing, or return to assessment.
+ * Nothing skips a step.
+ */
+export const setStage = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    stage: v.union(
+      v.literal("open"),
+      v.literal("assessment"),
+      v.literal("authorized"),
+    ),
+  },
+  handler: async (ctx, { roomId, stage }) => {
+    const userId = await requireUserId(ctx);
+    const room = await requireRoom(ctx, roomId, userId);
+
+    const order = ["open", "assessment", "authorized"] as const;
+    const current = normaliseStage(room.stage);
+    const distance = Math.abs(order.indexOf(current) - order.indexOf(stage));
+
+    if (distance !== 1) {
+      throw new Error(
+        "Stages move one step at a time. Close the floor, then authorize.",
+      );
+    }
+
+    await ctx.db.patch(roomId, { stage });
+    return stage;
   },
 });
 
@@ -249,6 +292,7 @@ export const createExample = mutation({
       premise:
         "Four devices hold four partial versions of the same ecosystem. Nothing merges until the evidence survives the room.",
       isExample: true,
+      stage: "assessment",
     });
 
     const seed: Array<{
@@ -256,6 +300,8 @@ export const createExample = mutation({
       thesis: string;
       contributor: string;
       kind: "human" | "agent";
+      track: "concept" | "brand" | "market" | "wild";
+      parent?: string;
       assessments: Array<{
         contributor: string;
         kind: "human" | "agent";
@@ -269,6 +315,7 @@ export const createExample = mutation({
           "One ledger of every repo, script and agent. Absence becomes a recorded claim instead of a memory.",
         contributor: "M. Okafor",
         kind: "human",
+        track: "concept",
         assessments: [
           {
             contributor: "M. Okafor",
@@ -291,11 +338,29 @@ export const createExample = mutation({
         ],
       },
       {
+        title: "Hashes before the ledger",
+        thesis:
+          "Take the inventory one step further: hash every artifact and sign it with the device that produced it, so duplicate becomes a fact instead of an argument.",
+        contributor: "lantern",
+        kind: "agent",
+        track: "concept",
+        parent: "A single inventory, written once",
+        assessments: [
+          {
+            contributor: "lantern",
+            kind: "agent",
+            note: "Adds one field and quietly ends most of the argument.",
+            d: { novelty: 6, warrant: 8, reach: 9, drag: 3 },
+          },
+        ],
+      },
+      {
         title: "Reconcile on read, not on write",
         thesis:
           "Let each device keep its own model. Merge only when someone asks a question, so no device has to agree first.",
         contributor: "lantern",
         kind: "agent",
+        track: "concept",
         assessments: [
           {
             contributor: "lantern",
@@ -322,6 +387,7 @@ export const createExample = mutation({
           "The broken sync on the Samsung is not a reason to rewrite. Fix the one path all four devices already share.",
         contributor: "M. Okafor",
         kind: "human",
+        track: "concept",
         assessments: [
           {
             contributor: "M. Okafor",
@@ -342,6 +408,7 @@ export const createExample = mutation({
           "Consolidate every repository into one tree so no version can drift again.",
         contributor: "atlas-4",
         kind: "agent",
+        track: "wild",
         assessments: [
           {
             contributor: "atlas-4",
@@ -364,6 +431,8 @@ export const createExample = mutation({
       },
     ];
 
+    const created = new Map<string, Id<"ideas">>();
+
     for (const entry of seed) {
       const ideaId = await ctx.db.insert("ideas", {
         roomId,
@@ -371,7 +440,10 @@ export const createExample = mutation({
         thesis: entry.thesis,
         contributor: entry.contributor,
         kind: entry.kind,
+        track: entry.track,
+        parentId: entry.parent ? created.get(entry.parent) : undefined,
       });
+      created.set(entry.title, ideaId);
       for (const assessment of entry.assessments) {
         await ctx.db.insert("assessments", {
           roomId,

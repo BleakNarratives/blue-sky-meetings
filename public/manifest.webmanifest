@@ -1,7 +1,7 @@
 {
-  "name": "Blue Sky Meetings",
+  "name": "Blue Sky Meeting",
   "short_name": "Blue Sky",
-  "description": "Sealed rooms for unannounced ideas, scored with the Future Runscore.",
+  "description": "A sealed room for the ideas you haven't said out loud yet, scored with the Future Runscore.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f3efe4",

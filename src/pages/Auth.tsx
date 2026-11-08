@@ -113,7 +113,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     <div className="flex min-h-screen flex-col bg-background">
       <header className="mx-auto flex w-full max-w-[1100px] items-center justify-between px-5 py-5">
         <Brand />
-        <Seal>Sealed rooms</Seal>
+        <Seal>Sealed room</Seal>
       </header>
 
       {/* Auth Content */}
@@ -129,7 +129,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 <CardTitle className="display text-3xl">Enter the room</CardTitle>
                 <CardDescription>
                   We&rsquo;ll send a six-digit code to confirm your seat. No
-                  password, no announcement.
+                  password, no performance, no pitch deck.
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleEmailSubmit}>
