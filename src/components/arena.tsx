@@ -29,6 +29,7 @@ export type BoutIdea = {
   title: string;
   track: string;
   score: number | null;
+  kept: boolean;
 };
 
 export type BoutBallot = {
@@ -88,6 +89,11 @@ function SidePanel({
         <span className="label-sm text-muted-foreground">
           {trackMeta(idea.track).label}
         </span>
+        {idea.kept && (
+          <span className="label-sm border border-dashed border-border px-1.5 py-0.5 text-muted-foreground">
+            Kept
+          </span>
+        )}
         {winner && <span className="label-sm ml-auto text-foreground">Called</span>}
       </div>
       <h3 className="mt-2 text-sm font-semibold leading-snug">{idea.title}</h3>

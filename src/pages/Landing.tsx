@@ -31,7 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { BANDS, DIMENSIONS, computeRunscore, bandFor } from "@/convex/runscore";
-import { STAGES, TRACKS } from "@/convex/protocol";
+import { REGISTERS, STAGES, TRACKS } from "@/convex/protocol";
 
 const SPECIMEN = { novelty: 9, warrant: 9, reach: 8, drag: 2 };
 const SPECIMEN_SCORE = computeRunscore(SPECIMEN);
@@ -480,6 +480,37 @@ function RunscoreSection() {
               is recorded beside the score, never added to it, so radical ideas
               aren&rsquo;t quietly weeded out by a model&rsquo;s sense of
               probability.
+            </p>
+          </div>
+
+          <div className="mt-4 border border-border bg-card p-4">
+            <p className="label flex items-center justify-between gap-3 text-muted-foreground">
+              Three questions, not one
+              <span className="label-sm text-muted-foreground">
+                Can · Might · Ought
+              </span>
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {REGISTERS.map((register) => (
+                <div
+                  key={register.key}
+                  className="border border-border bg-background px-3 py-2.5"
+                >
+                  <p className="label">{register.label}</p>
+                  <p className="mt-1 text-[0.75rem] leading-5 text-foreground/85">
+                    {register.question}
+                  </p>
+                  <p className="mt-1.5 text-[0.6875rem] leading-4 text-muted-foreground">
+                    {register.note}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-[0.75rem] leading-6 text-muted-foreground">
+              The runscore answers Can. Might and Ought are positions, not
+              arithmetic: an idea can be workable, unlikely, and wrong at the
+              same time. When something must be kept but not built, it goes to the
+              Bestiary — labeled, dated, never deleted.
             </p>
           </div>
         </motion.div>

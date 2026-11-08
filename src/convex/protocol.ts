@@ -241,3 +241,83 @@ export const BOUT_QUESTIONS = [
 ] as const;
 
 export const BOUT_QUESTION_CUSTOM = "Ask your own question";
+
+/**
+ * Three questions, not one. The runscore answers Can. Might is a forecast.
+ * Ought is a values question, and no arithmetic gets to settle it.
+ */
+export const REGISTERS = [
+  {
+    key: "can",
+    label: "Can",
+    question: "Can it work?",
+    note: "The runscore answers this one. Evidence, not desire.",
+  },
+  {
+    key: "might",
+    label: "Might",
+    question: "Might it happen?",
+    note: "Likelihood, adoption, timing. A forecast, not a fact.",
+  },
+  {
+    key: "ought",
+    label: "Ought",
+    question: "Ought it exist?",
+    note: "A values question. The arithmetic cannot settle it.",
+  },
+] as const;
+
+export const MIGHT_STANCES = [
+  {
+    key: "unlikely",
+    label: "Unlikely",
+    hint: "The conditions aren't there yet.",
+  },
+  {
+    key: "even",
+    label: "Even",
+    hint: "It could go either way.",
+  },
+  {
+    key: "likely",
+    label: "Likely",
+    hint: "The pull is already there.",
+  },
+] as const;
+
+export type MightStance = (typeof MIGHT_STANCES)[number]["key"];
+
+export const OUGHT_STANCES = [
+  {
+    key: "should",
+    label: "Should",
+    hint: "Worth building, with the costs named.",
+  },
+  {
+    key: "shouldnt",
+    label: "Shouldn't",
+    hint: "Not worth what it costs someone else.",
+  },
+  {
+    key: "undecided",
+    label: "Undecided",
+    hint: "The question is not settled.",
+  },
+] as const;
+
+export type OughtStance = (typeof OUGHT_STANCES)[number]["key"];
+
+export function mightMeta(stance: string | undefined | null) {
+  return MIGHT_STANCES.find((entry) => entry.key === stance) ?? MIGHT_STANCES[1];
+}
+
+export function oughtMeta(stance: string | undefined | null) {
+  return OUGHT_STANCES.find((entry) => entry.key === stance) ?? OUGHT_STANCES[2];
+}
+
+/** How long a shelved idea sits before the room is asked to look again. */
+export const BESTIARY_REVIEWS = [
+  { key: "90", label: "3 months", days: 90 },
+  { key: "365", label: "1 year", days: 365 },
+  { key: "none", label: "No review", days: 0 },
+] as const;

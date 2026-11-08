@@ -61,6 +61,7 @@ export const list = query({
 
       const bands = emptyBandCounts();
       const scored = ideas
+        .filter((idea) => idea.disposition !== "bestiary")
         .map((idea) => ({
           idea,
           reading: aggregateRunscore(
@@ -92,6 +93,9 @@ export const list = query({
         revealed: isRevealed(room),
         createdAt: room._creationTime,
         ideaCount: ideas.length,
+        bestiaryCount: ideas.filter(
+          (idea) => idea.disposition === "bestiary",
+        ).length,
         scoredCount: scored.length,
         bands,
         topScore: ranked[0]?.reading?.score ?? null,
@@ -124,6 +128,10 @@ export const get = query({
     const byId = new Map(ideas.map((idea) => [idea._id, idea]));
     const nods = await ctx.db
       .query("nods")
+      .withIndex("by_room", (q) => q.eq("roomId", roomId))
+      .collect();
+    const positions = await ctx.db
+      .query("positions")
       .withIndex("by_room", (q) => q.eq("roomId", roomId))
       .collect();
     const user = await ctx.db.get(userId);
@@ -208,6 +216,42 @@ export const get = query({
           .map((id) => byId.get(id)?.title)
           .filter((title): title is string => Boolean(title)),
         bootstrap: idea.bootstrap ?? null,
+        disposition: idea.disposition === "bestiary" ? "bestiary" : "live",
+        dispositionNote: idea.dispositionNote ?? null,
+        dispositionBy: idea.dispositionBy ?? null,
+        dispositionAt: idea.dispositionAt ?? null,
+        reviewAt: idea.reviewAt ?? null,
+        positions: (() => {
+          const own = positions.filter((row) => row.ideaId === idea._id);
+          return {
+            seatCount: own.length,
+            might: {
+              unlikely: own.filter((row) => row.might === "unlikely").length,
+              even: own.filter((row) => row.might === "even").length,
+              likely: own.filter((row) => row.might === "likely").length,
+            },
+            ought: {
+              should: own.filter((row) => row.ought === "should").length,
+              shouldnt: own.filter((row) => row.ought === "shouldnt").length,
+              undecided: own.filter((row) => row.ought === "undecided").length,
+            },
+          };
+        })(),
+        myPosition: (() => {
+          if (seatName.length === 0) return null;
+          const mine = positions.find(
+            (row) =>
+              row.ideaId === idea._id &&
+              row.contributor.trim().toLowerCase() === seatName,
+          );
+          return mine
+            ? {
+                might: mine.might,
+                ought: mine.ought,
+                note: mine.note ?? null,
+              }
+            : null;
+        })(),
         steward: idea.steward ?? null,
         stewardKind: idea.stewardKind ?? null,
         assignmentMode: idea.assignmentMode ?? null,
@@ -255,6 +299,24 @@ export const get = query({
       return b.score - a.score;
     });
 
+    const liveRows = rows.filter((row) => row.disposition !== "bestiary");
+    const bestiary = rows
+      .filter((row) => row.disposition === "bestiary")
+      .sort((a, b) => (b.dispositionAt ?? 0) - (a.dispositionAt ?? 0))
+      .map((row) => ({
+        _id: row._id,
+        title: row.title,
+        thesis: row.thesis,
+        contributor: row.contributor,
+        track: row.track,
+        score: row.score,
+        bandKey: row.bandKey,
+        note: row.dispositionNote,
+        by: row.dispositionBy,
+        reviewAt: row.reviewAt,
+        keptAt: row.dispositionAt,
+      }));
+
     const rowById = new Map(rows.map((row) => [row._id, row]));
     const boutRows = [];
     for (const bout of rawBouts.sort(
@@ -281,8 +343,20 @@ export const get = query({
         calledBy: bout.calledBy ?? null,
         createdBy: bout.createdBy,
         createdAt: bout._creationTime,
-        a: { id: a._id, title: a.title, track: a.track, score: a.score },
-        b: { id: b._id, title: b.title, track: b.track, score: b.score },
+        a: {
+          id: a._id,
+          title: a.title,
+          track: a.track,
+          score: a.score,
+          kept: a.disposition === "bestiary",
+        },
+        b: {
+          id: b._id,
+          title: b.title,
+          track: b.track,
+          score: b.score,
+          kept: b.disposition === "bestiary",
+        },
         ballots: ballots
           .sort((x, y) => x._creationTime - y._creationTime)
           .map((ballot) => ({
@@ -319,7 +393,7 @@ export const get = query({
     const bands = emptyBandCounts();
     let total = 0;
     let scored = 0;
-    for (const row of rows) {
+    for (const row of liveRows) {
       if (row.score === null || row.bandKey === null) continue;
       bands[row.bandKey] += 1;
       total += row.score;
@@ -338,13 +412,15 @@ export const get = query({
       sealed,
       poolSize: rows.length,
       stats: {
-        ideaCount: rows.length,
+        ideaCount: liveRows.length,
         scoredCount: scored,
-        unscoredCount: rows.length - scored,
+        unscoredCount: liveRows.length - scored,
         averageScore: scored > 0 ? Math.round((total / scored) * 10) / 10 : null,
+        bestiaryCount: bestiary.length,
         bands,
       },
-      ideas: sealed ? [] : rows,
+      ideas: sealed ? [] : liveRows,
+      bestiary: sealed ? [] : bestiary,
       sources: sourceRows,
       readings: readingRows,
       bouts: boutRows,
@@ -441,6 +517,12 @@ export const remove = mutation({
       .withIndex("by_room", (q) => q.eq("roomId", roomId))
       .collect();
     for (const reading of readings) await ctx.db.delete(reading._id);
+
+    const positions = await ctx.db
+      .query("positions")
+      .withIndex("by_room", (q) => q.eq("roomId", roomId))
+      .collect();
+    for (const position of positions) await ctx.db.delete(position._id);
 
     const bouts = await ctx.db
       .query("bouts")
@@ -885,6 +967,85 @@ export const createExample = mutation({
           againstCase: ballot.againstCase,
         });
       }
+    }
+
+    // Might and Ought, answered by named seats. Neither is folded into the
+    // runscore; the room can see the split.
+    const positionSeed: Array<{
+      idea: string;
+      might: "unlikely" | "even" | "likely";
+      ought: "should" | "shouldnt" | "undecided";
+      contributor: string;
+      kind: "human" | "agent";
+      note?: string;
+    }> = [
+      {
+        idea: "A single inventory, written once",
+        might: "likely",
+        ought: "should",
+        contributor: "M. Okafor",
+        kind: "human",
+        note: "The pain is already here. The argument is upkeep, not demand.",
+      },
+      {
+        idea: "Repair the A9 before a fifth copy",
+        might: "likely",
+        ought: "should",
+        contributor: "atlas-4",
+        kind: "agent",
+        note: "A reproducible failure and a bounded fix. That is rare.",
+      },
+      {
+        idea: "Reconcile on read, not on write",
+        might: "even",
+        ought: "undecided",
+        contributor: "M. Okafor",
+        kind: "human",
+        note: "Elegant. I do not have evidence it holds under conflict.",
+      },
+      {
+        idea: "Reconcile on read, not on write",
+        might: "unlikely",
+        ought: "shouldnt",
+        contributor: "atlas-4",
+        kind: "agent",
+        note: "Four consumers, four shapes, no shared truth.",
+      },
+      {
+        idea: "A signed inventory that shows its own diff",
+        might: "unlikely",
+        ought: "undecided",
+        contributor: "lantern",
+        kind: "agent",
+        note: "Keep it alive until someone costs the explaining.",
+      },
+    ];
+
+    for (const position of positionSeed) {
+      const ideaId = created.get(position.idea);
+      if (!ideaId) continue;
+      await ctx.db.insert("positions", {
+        roomId,
+        ideaId,
+        might: position.might,
+        ought: position.ought,
+        note: position.note,
+        contributor: position.contributor,
+        kind: position.kind,
+      });
+    }
+
+    // One idea that must be kept, not built. The shelf is the point.
+    const monorepoId = created.get("Rebuild the ecosystem as one monorepo");
+    if (monorepoId) {
+      await ctx.db.patch(monorepoId, {
+        disposition: "bestiary",
+        dispositionNote:
+          "Proposes a rewrite with no migration path for the backup volume. Kept because the room will propose it again, and next time the objection should already be on the shelf.",
+        dispositionBy: "M. Okafor",
+        dispositionAt: Date.now(),
+        reviewAt: Date.now() + 90 * 86400000,
+      });
     }
 
     return roomId;

@@ -17,6 +17,8 @@ import {
 import { ArenaSection, BoutDialog } from "@/components/arena";
 import { BoardDialog } from "@/components/board";
 import { SourcesDialog, SourcesPanel } from "@/components/sources";
+import { Registers, DeliberateDialog, type RegisterTarget } from "@/components/registers";
+import { BestiarySection, KeepDialog } from "@/components/bestiary";
 import { StageChip, StageRail } from "@/components/stage-rail";
 import {
   BandChip,
@@ -34,6 +36,7 @@ import { HostCard } from "@/components/host";
 import { Reactions } from "@/components/reactions";
 import { motion } from "framer-motion";
 import {
+  Archive,
   ArrowLeft,
   CornerDownRight,
   GitMerge,
@@ -86,6 +89,15 @@ export default function Room() {
   const [breedOpen, setBreedOpen] = useState(false);
   const [breedTarget, setBreedTarget] = useState<BreedIdea | null>(null);
   const [boutOpen, setBoutOpen] = useState(false);
+  const [positionOpen, setPositionOpen] = useState(false);
+  const [positionTarget, setPositionTarget] = useState<RegisterTarget | null>(
+    null,
+  );
+  const [keepOpen, setKeepOpen] = useState(false);
+  const [keepTarget, setKeepTarget] = useState<{
+    _id: Id<"ideas">;
+    title: string;
+  } | null>(null);
   const [stagePending, setStagePending] = useState(false);
 
   if (data === undefined) {
@@ -188,6 +200,9 @@ export default function Room() {
                     <>
                       {stats.ideaCount} {stats.ideaCount === 1 ? "idea" : "ideas"}{" "}
                       · {stats.scoredCount} scored
+                      {stats.bestiaryCount > 0
+                        ? ` · ${stats.bestiaryCount} kept`
+                        : ""}
                     </>
                   )}
                 </Meta>
@@ -285,6 +300,12 @@ export default function Room() {
                     </div>
                   ))}
                 </div>
+
+                {stats.bestiaryCount > 0 && (
+                  <p className="label-sm border-t border-border px-4 py-2.5 text-muted-foreground">
+                    {stats.bestiaryCount} kept in the bestiary · not counted above
+                  </p>
+                )}
 
                 <div className="border-t border-border px-4 py-4">
                   <BandLadder counts={stats.bands} />
@@ -538,6 +559,14 @@ export default function Room() {
                         )}
                       </div>
 
+                      <Registers
+                        idea={idea}
+                        onOpen={() => {
+                          setPositionTarget(idea);
+                          setPositionOpen(true);
+                        }}
+                      />
+
                       {idea.assessments.length > 0 && (
                         <div className="border-t border-border bg-secondary/40 px-4 py-3 sm:px-5">
                           <div className="flex flex-col gap-2">
@@ -597,6 +626,22 @@ export default function Room() {
                               {idea.bar ? ` · bar ${bandMeta(idea.bar).label}` : ""}
                             </span>
                           )}
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="px-2"
+                            onClick={() => {
+                              setKeepTarget({
+                                _id: idea._id,
+                                title: idea.title,
+                              });
+                              setKeepOpen(true);
+                            }}
+                          >
+                            <Archive className="size-3" />
+                            Keep, don&rsquo;t build
+                          </Button>
 
                           <Button
                             size="sm"
@@ -707,6 +752,8 @@ export default function Room() {
               />
             )}
 
+            {!sealed && <BestiarySection entries={data.bestiary} />}
+
             <p className="mt-5 font-mono text-[0.625rem] uppercase leading-5 tracking-[0.14em] text-muted-foreground">
               {sealed
                 ? "Nothing above has been shown to the room. The pool opens once, together."
@@ -794,6 +841,22 @@ export default function Room() {
           track: idea.track,
           score: idea.score,
         }))}
+      />
+      <DeliberateDialog
+        open={positionOpen}
+        onOpenChange={(open) => {
+          setPositionOpen(open);
+          if (!open) setPositionTarget(null);
+        }}
+        idea={positionTarget}
+      />
+      <KeepDialog
+        open={keepOpen}
+        onOpenChange={(open) => {
+          setKeepOpen(open);
+          if (!open) setKeepTarget(null);
+        }}
+        idea={keepTarget}
       />
     </AppShell>
   );

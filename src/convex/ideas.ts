@@ -346,6 +346,12 @@ export const remove = mutation({
       .collect();
     for (const reading of readings) await ctx.db.delete(reading._id);
 
+    const positions = await ctx.db
+      .query("positions")
+      .withIndex("by_idea", (q) => q.eq("ideaId", ideaId))
+      .collect();
+    for (const position of positions) await ctx.db.delete(position._id);
+
     // A bout cannot survive one of its sides. Clear its ballots too.
     const bouts = await ctx.db
       .query("bouts")

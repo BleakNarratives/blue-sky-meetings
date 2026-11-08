@@ -98,6 +98,14 @@ const schema = defineSchema(
       bootstrap: v.optional(v.string()),
       // a hybrid carries both lineages, and starts unscored like everything else
       bredFrom: v.optional(v.array(v.id("ideas"))),
+      // the shelf for ideas that must be kept but not built. Absent means live.
+      disposition: v.optional(
+        v.union(v.literal("live"), v.literal("bestiary")),
+      ),
+      dispositionNote: v.optional(v.string()),
+      dispositionBy: v.optional(v.string()),
+      dispositionAt: v.optional(v.number()),
+      reviewAt: v.optional(v.number()),
     }).index("by_room", ["roomId"]),
 
     // One scoring pass over one idea: four 0–10 dimensions plus rationale.
@@ -147,6 +155,29 @@ const schema = defineSchema(
     })
       .index("by_room", ["roomId"])
       .index("by_idea", ["ideaId"]),
+
+    // One seat's pair of answers to the two questions the runscore cannot
+    // answer: might it happen, and ought it exist. One seat, one pair;
+    // revising replaces. Tallied, never averaged into a score.
+    positions: defineTable({
+      roomId: v.id("rooms"),
+      ideaId: v.id("ideas"),
+      might: v.union(
+        v.literal("unlikely"),
+        v.literal("even"),
+        v.literal("likely"),
+      ),
+      ought: v.union(
+        v.literal("should"),
+        v.literal("shouldnt"),
+        v.literal("undecided"),
+      ),
+      note: v.optional(v.string()),
+      contributor: v.string(),
+      kind: contributorKindValidator,
+    })
+      .index("by_idea", ["ideaId"])
+      .index("by_room", ["roomId"]),
 
     // A seat speaking from a chair. The board is a set of lenses, not a panel
     // of authorities: a reading is an argument on the record, never a score.

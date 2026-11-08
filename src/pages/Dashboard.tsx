@@ -67,7 +67,7 @@ export default function Dashboard() {
       const roomId = await createExample({});
       toast("Example room opened", {
         description:
-          "Six ideas, a hybrid, a board in session, fourteen scoring passes, and one called bout kept intact.",
+          "Six ideas, one on the bestiary shelf, fourteen scoring passes, and one called bout kept intact.",
       });
       navigate(`/room/${roomId}`);
     } catch (error) {
@@ -188,7 +188,11 @@ export default function Dashboard() {
                         <Meta>
                           {sealed
                             ? `${room.ideaCount} sealed`
-                            : `${room.ideaCount} ${room.ideaCount === 1 ? "idea" : "ideas"} · ${room.scoredCount} scored`}
+                            : `${room.ideaCount} ${room.ideaCount === 1 ? "idea" : "ideas"} · ${room.scoredCount} scored${
+                                room.bestiaryCount > 0
+                                  ? ` · ${room.bestiaryCount} kept`
+                                  : ""
+                              }`}
                         </Meta>
                       </div>
 
@@ -267,9 +271,10 @@ export default function Dashboard() {
               <p className="mt-3 max-w-[32rem] text-[0.8125rem] leading-6 text-muted-foreground">
                 A room can hold a Runaway idea and a Dormant one at the same time.
                 That is the point. Nothing is removed for scoring low — it stays on
-                the record with the evidence, or lack of it, attached. Stages keep
-                the order honest: hear everything, score it, then authorize the
-                work.
+                the record with the evidence, or lack of it, attached. If the room
+                decides an idea must be kept but not built, it goes to the
+                bestiary with a reason, a keeper, and a date. Stages keep the order
+                honest: hear everything, score it, then authorize the work.
               </p>
               <Button asChild variant="outline" size="sm" className="mt-5">
                 <Link to="/">
