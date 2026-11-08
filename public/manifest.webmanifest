@@ -1,0 +1,17 @@
+{
+  "name": "Blue Sky Meetings",
+  "short_name": "Blue Sky",
+  "description": "Sealed rooms for unannounced ideas, scored with the Future Runscore.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3efe4",
+  "theme_color": "#1c1b17",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
