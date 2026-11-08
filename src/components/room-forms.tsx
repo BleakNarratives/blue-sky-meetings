@@ -8,7 +8,12 @@ import {
   computeRunscore,
   type DimensionKey,
 } from "@/convex/runscore";
-import { TRACKS, type Track } from "@/convex/protocol";
+import {
+  ASSIGNMENT_MODES,
+  TRACKS,
+  type AssignmentMode,
+  type Track,
+} from "@/convex/protocol";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Dialog,
@@ -205,11 +210,13 @@ export function AddIdeaDialog({
   onOpenChange,
   roomId,
   parent,
+  sealed = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   roomId: Id<"rooms">;
   parent?: { _id: Id<"ideas">; title: string } | null;
+  sealed?: boolean;
 }) {
   const add = useMutation(api.ideas.add);
   const { user } = useAuth();
@@ -242,11 +249,16 @@ export function AddIdeaDialog({
         track,
         parentId: parent?._id,
       });
-      toast(parent ? "Iteration recorded" : "On the table", {
-        description: parent
-          ? "It stands on its own. The original is untouched."
-          : "Unscored until the floor closes and someone makes a case.",
-      });
+      toast(
+        parent ? "Iteration recorded" : sealed ? "Sealed in the pool" : "On the table",
+        {
+          description: parent
+            ? "It stands on its own. The original is untouched."
+            : sealed
+              ? "Nobody sees it — no author, no order. Everything opens together."
+              : "Unscored until the floor closes and someone makes a case.",
+        },
+      );
       onOpenChange(false);
     } catch (error) {
       toast.error(
@@ -267,7 +279,9 @@ export function AddIdeaDialog({
           <DialogDescription>
             {parent
               ? "Your version goes down as its own entry, under your name. The original stays exactly as it was."
-              : "Say it the way it came out. No polish, no pitch. The original stays in your words, under your name."}
+              : sealed
+                ? "This goes into a sealed pool. Nobody — not even the host — sees it until the floor closes, and then everyone sees everything at once."
+                : "Say it the way it came out. No polish, no pitch. The original stays in your words, under your name."}
           </DialogDescription>
         </DialogHeader>
 
@@ -365,6 +379,7 @@ export type AssessTarget = {
     reach: number;
     drag: number;
     note: string | null;
+    asymmetric: boolean;
   }>;
 };
 
@@ -390,6 +405,7 @@ export function AssessDialog({
   const [note, setNote] = useState("");
   const [contributor, setContributor] = useState("");
   const [kind, setKind] = useState<Kind>("human");
+  const [asymmetric, setAsymmetric] = useState<boolean | null>(null);
   const [pending, setPending] = useState(false);
 
   const defaultSeat = user?.name ?? user?.email?.split("@")[0] ?? "";
@@ -410,10 +426,12 @@ export function AssessDialog({
       });
       setNote(seat.note ?? "");
       setKind(seat.kind);
+      setAsymmetric(seat.asymmetric);
     } else {
       setValues(START);
       setNote("");
       setKind("human");
+      setAsymmetric(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, idea?._id, defaultSeat]);
@@ -434,10 +452,17 @@ export function AssessDialog({
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!idea) return;
+    if (!idea || asymmetric === null) return;
     setPending(true);
     try {
-      await assess({ ideaId: idea._id, ...values, note, contributor, kind });
+      await assess({
+        ideaId: idea._id,
+        ...values,
+        note,
+        contributor,
+        kind,
+        asymmetric,
+      });
       toast("Pass recorded", {
         description: `${idea.title} reads ${reading.toFixed(1)} on this pass.`,
       });
@@ -523,6 +548,50 @@ export function AssessDialog({
             ))}
           </div>
 
+          <div className="border border-border bg-background px-4 py-3.5">
+            <p className="label text-muted-foreground">
+              How should the room read it?
+            </p>
+            <div className="mt-2.5 grid grid-cols-2 gap-2">
+              {[
+                {
+                  value: false,
+                  label: "Steady bet",
+                  hint: "Precedent supports it. Risk and reward scale together.",
+                },
+                {
+                  value: true,
+                  label: "Asymmetric bet",
+                  hint: "Precedent says it probably fails. The upside isn't linear.",
+                },
+              ].map((option) => (
+                <button
+                  key={String(option.value)}
+                  type="button"
+                  disabled={pending}
+                  aria-pressed={asymmetric === option.value}
+                  onClick={() => setAsymmetric(option.value)}
+                  className={cn(
+                    "flex flex-col gap-1 border px-3 py-2.5 text-left transition-colors",
+                    asymmetric === option.value
+                      ? "border-foreground bg-secondary"
+                      : "border-border hover:border-foreground/40",
+                  )}
+                >
+                  <span className="label">{option.label}</span>
+                  <span className="text-[0.6875rem] leading-4 text-muted-foreground">
+                    {option.hint}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2.5 text-xs leading-5 text-muted-foreground">
+              Every pass has to call it. Asymmetry is recorded beside the score —
+              never added to it, so radical ideas aren't quietly outvoted by
+              arithmetic.
+            </p>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="assess-contributor" className="label">
@@ -574,7 +643,10 @@ export function AssessDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={pending || !contributor.trim()}>
+            <Button
+              type="submit"
+              disabled={pending || !contributor.trim() || asymmetric === null}
+            >
               {pending && <Loader2 className="size-3.5 animate-spin" />}
               Add this pass
             </Button>
@@ -590,6 +662,7 @@ export type StewardTarget = {
   title: string;
   steward: string | null;
   stewardKind: Kind | null;
+  assignmentMode: AssignmentMode | null;
 };
 
 export function AssignDialog({
@@ -605,6 +678,7 @@ export function AssignDialog({
   const { user } = useAuth();
   const [steward, setSteward] = useState("");
   const [kind, setKind] = useState<Kind>("human");
+  const [mode, setMode] = useState<AssignmentMode>("deliver");
   const [pending, setPending] = useState(false);
 
   const defaultSeat = user?.name ?? user?.email?.split("@")[0] ?? "";
@@ -613,16 +687,24 @@ export function AssignDialog({
     if (!open || !idea) return;
     setSteward(idea.steward ?? defaultSeat);
     setKind(idea.stewardKind ?? "human");
-  }, [open, idea?._id, idea?.steward, idea?.stewardKind, defaultSeat]);
+    setMode(idea.assignmentMode ?? "deliver");
+  }, [
+    open,
+    idea?._id,
+    idea?.steward,
+    idea?.stewardKind,
+    idea?.assignmentMode,
+    defaultSeat,
+  ]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!idea) return;
     setPending(true);
     try {
-      await assign({ ideaId: idea._id, steward, stewardKind: kind });
+      await assign({ ideaId: idea._id, steward, stewardKind: kind, mode });
       toast("Steward assigned", {
-        description: `${steward} carries it from here. Authorship stays where it was.`,
+        description: `${steward} carries it as ${mode === "explore" ? "an exploration" : "a delivery"}. Authorship stays where it was.`,
       });
       onOpenChange(false);
     } catch (error) {
@@ -668,9 +750,35 @@ export function AssignDialog({
             <span className="label text-muted-foreground">Seat</span>
             <KindToggle value={kind} onChange={setKind} disabled={pending} />
           </div>
+          <div className="flex flex-col gap-2">
+            <span className="label text-muted-foreground">The brief</span>
+            <div className="grid grid-cols-2 gap-2">
+              {ASSIGNMENT_MODES.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  disabled={pending}
+                  aria-pressed={mode === option.key}
+                  onClick={() => setMode(option.key)}
+                  className={cn(
+                    "flex flex-col gap-1 border px-3 py-2.5 text-left transition-colors",
+                    mode === option.key
+                      ? "border-foreground bg-secondary"
+                      : "border-border hover:border-foreground/40",
+                  )}
+                >
+                  <span className="label">{option.label}</span>
+                  <span className="text-[0.6875rem] leading-4 text-muted-foreground">
+                    {option.hint}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
           <p className="text-xs leading-5 text-muted-foreground">
-            Assignment is authorization, not authorship. It can be changed later,
-            but never by the steward alone.
+            Assignment is authorization, not authorship. Exploration and delivery
+            are recorded separately: a long shot that fails is not a broken
+            commitment, but a dropped deliverable is.
           </p>
           <DialogFooter>
             <Button

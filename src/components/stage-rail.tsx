@@ -45,15 +45,19 @@ export function StageChip({
 export function StageRail({
   stage,
   pending,
+  revealed,
   onSetStage,
 }: {
   stage: string | undefined | null;
   pending?: boolean;
+  revealed?: boolean;
   onSetStage: (stage: Stage) => void;
 }) {
   const key = normaliseStage(stage);
   const current = stageNumber(key);
   const meta = stageMeta(key);
+  // A reopened floor no longer seals what the room has already seen.
+  const openAfterReveal = key === "open" && revealed === true;
   const next = nextStage(key);
   const previous = previousStage(key);
 
@@ -105,7 +109,9 @@ export function StageRail({
       <div className="flex flex-col gap-4 border-t border-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
         <div className="min-w-0">
           <p className="max-w-[38rem] text-[0.8125rem] leading-6 text-muted-foreground">
-            {meta.blurb}
+            {openAfterReveal
+              ? "The pool has already been revealed. New additions land in the open, and nothing is graded until the floor closes again."
+              : meta.blurb}
           </p>
           <p className="label-sm mt-2 text-muted-foreground/80">{meta.rule}</p>
         </div>

@@ -13,9 +13,9 @@ export const STAGES = [
     label: "Open floor",
     short: "Open",
     blurb:
-      "Everyone gets a turn before anything is judged. Fragments, problems, jokes, ridiculous proposals — all of it goes down.",
-    rule: "Nothing is scored yet.",
-    action: "Close the floor",
+      "Everyone gets a turn. Contributions go into a sealed pool: no author, no order, no anchor until the floor closes.",
+    rule: "Nothing is visible or scored yet.",
+    action: "Close the floor and reveal",
   },
   {
     key: "assessment",
@@ -23,8 +23,8 @@ export const STAGES = [
     label: "Assessment",
     short: "Assessing",
     blurb:
-      "The floor is closed. Every contribution gets the same reading: same four dimensions, same weights, same chance to be taken seriously.",
-    rule: "Scoring is open. No assignments yet.",
+      "The pool is revealed all at once, names attached. Every contribution gets the same reading — and asymmetry is flagged, never scored.",
+    rule: "Scoring and build-ons are open. No assignments yet.",
     action: "Authorize",
   },
   {
@@ -33,7 +33,7 @@ export const STAGES = [
     label: "Authorized",
     short: "Authorized",
     blurb:
-      "You have decided what deserves resources. Work can now be assigned — by demonstrated ability, not by who spoke first.",
+      "You have decided what deserves resources. Work can be assigned with a brief: explore or deliver, recorded separately.",
     rule: "Assignment and execution are allowed.",
     action: null,
   },
@@ -57,6 +57,37 @@ export function stageNumber(stage: string | undefined | null): number {
 }
 
 export type Capability = "contribute" | "score" | "assign" | "authorize";
+
+/**
+ * A room is sealed until its first reveal. After that, reopening the floor
+ * does not re-blind what everyone has already seen.
+ */
+export function isRevealed(room: {
+  revealed?: boolean | null;
+  stage?: string | null;
+}): boolean {
+  return room.revealed === true || normaliseStage(room.stage) !== "open";
+}
+
+/**
+ * Every assignment carries a brief. Exploratory work and delivery work are
+ * recorded separately so a long shot that fails is not read as a dropped
+ * commitment.
+ */
+export const ASSIGNMENT_MODES = [
+  {
+    key: "deliver",
+    label: "Delivery",
+    hint: "A commitment with a finish line. Missing it counts.",
+  },
+  {
+    key: "explore",
+    label: "Exploration",
+    hint: "A long shot, judged on what it taught. Failing is an outcome, not a breach.",
+  },
+] as const;
+
+export type AssignmentMode = (typeof ASSIGNMENT_MODES)[number]["key"];
 
 /** Is a given move allowed at this point in the meeting? */
 export function allows(stage: string | undefined | null, capability: Capability) {

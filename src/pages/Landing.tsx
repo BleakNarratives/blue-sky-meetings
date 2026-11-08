@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router";
 import { Brand, Meta, Seal } from "@/components/brand";
+import { HostLine } from "@/components/host";
 import {
   BandChip,
   BandLadder,
@@ -59,6 +60,11 @@ const RULES = [
     index: "05",
     title: "Ideas earn credit. Delivery earns responsibility.",
     body: "Contribution doesn't excuse nonperformance. Authorship doesn't own the work. Both are recorded, and both are accountable.",
+  },
+  {
+    index: "06",
+    title: "Company, not consensus.",
+    body: "A nod and a pushback carry the same weight, and neither moves the score. Belonging is the point. Agreement is not the price of admission.",
   },
 ];
 
@@ -137,7 +143,7 @@ function Hero() {
               <span className="size-1.5 bg-highlight ring-1 ring-foreground/30" />
               Doors closed · floor open
             </span>
-            <Meta>v1 / sealed</Meta>
+            <Meta>v1 / hosted by Syntax AI</Meta>
           </div>
 
           <h1 className="display mt-7 text-[3.25rem] leading-[0.92] tracking-tight sm:text-6xl lg:text-[4.75rem]">
@@ -157,8 +163,9 @@ function Hero() {
           <p className="mt-7 max-w-[34rem] text-[0.95rem] leading-7 text-muted-foreground">
             Blue Sky Meeting is a sealed room for ideas that aren&rsquo;t ready for
             the world yet. Bring the fragment, the crude version, the thing you
-            can&rsquo;t explain. Everyone gets heard once before anything gets
-            judged — then the room scores what could actually survive.
+            can&rsquo;t explain. Contributions wait in a sealed pool until the
+            floor closes, then arrive all at once — so no name and no order can
+            anchor the room. Then it scores what could actually survive.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -175,7 +182,8 @@ function Hero() {
 
           <p className="label-sm mt-8 max-w-[31rem] leading-5 text-muted-foreground">
             Blue sky means unlimited room to think. It has never meant permission
-            to act. It also has nothing to do with weather.
+            to act. It also has nothing to do with weather. Syntax AI hosts the
+            room — it keeps the record and reads every pass, and it never votes.
           </p>
         </motion.div>
 
@@ -443,6 +451,22 @@ function RunscoreSection() {
             </p>
             <span className="label-sm text-foreground">0 — 100</span>
           </div>
+
+          <div className="mt-4 border border-border bg-card p-4">
+            <p className="label flex items-center justify-between gap-3 text-muted-foreground">
+              Flagged, not scored
+              <span className="label-sm text-muted-foreground">Every pass</span>
+            </p>
+            <p className="mt-2 text-[0.8125rem] leading-6 text-muted-foreground">
+              Each pass also calls one thing the arithmetic can&rsquo;t:{" "}
+              <span className="text-foreground">steady bet</span> or{" "}
+              <span className="text-foreground">asymmetric bet</span> — precedent
+              says it probably fails, but the upside isn&rsquo;t linear. Asymmetry
+              is recorded beside the score, never added to it, so radical ideas
+              aren&rsquo;t quietly weeded out by a model&rsquo;s sense of
+              probability.
+            </p>
+          </div>
         </motion.div>
       </div>
     </section>
@@ -525,6 +549,33 @@ function StageSection() {
             was said.
           </p>
         </motion.div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {[
+            {
+              title: "Asymmetry is flagged, not scored.",
+              body: "Precedent says it probably fails; the upside isn't linear. The room records that call next to the number instead of letting arithmetic quietly weed it out.",
+            },
+            {
+              title: "Nods are company, not consensus.",
+              body: "A nod and a pushback sit at the same table at the same weight. Neither changes the runscore or the order. You can feel at home here without agreeing with anyone.",
+            },
+          ].map((item, index) => (
+            <motion.div
+              key={item.title}
+              {...fade}
+              transition={{ ...fade.transition, delay: index * 0.05 }}
+              className="border border-border bg-card p-5"
+            >
+              <h3 className="text-base font-semibold tracking-tight">
+                {item.title}
+              </h3>
+              <p className="mt-1.5 text-[0.8125rem] leading-6 text-muted-foreground">
+                {item.body}
+              </p>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -544,9 +595,10 @@ function RulesSection() {
             </h2>
             <p className="mt-5 max-w-[27rem] text-[0.9rem] leading-7 text-background/65">
               This is a room, not a stage. Nothing comes in that existed before the
-              meeting; nothing leaves that was made in it. The machine advises. The
-              humans authorize. Attribution is permanent, and confidence is not
-              evidence.
+              meeting; nothing leaves that was made in it. Syntax AI hosts the
+              room, reads every pass and flags what the arithmetic would miss. It
+              advises. You authorize. Attribution is permanent, and confidence is
+              not evidence.
             </p>
 
             <div className="mt-8 border-t border-background/20 pt-5">
@@ -619,7 +671,9 @@ function MakingSection() {
             <p className="mt-4 max-w-[27rem] text-[0.9rem] leading-7 text-muted-foreground">
               When you authorize something, you name a steward to carry it. Chosen
               for demonstrated ability and appetite — not for who spoke first.
-              Authorship and stewardship are recorded separately, on purpose.
+              Every assignment carries a brief: explore or deliver. They are
+              recorded as different commitments, so a long shot that fails is not
+              mistaken for a dropped promise.
             </p>
           </motion.div>
 
@@ -692,6 +746,7 @@ function Footer() {
           <p className="label-sm mt-4 text-muted-foreground">
             A room for the ideas you haven&rsquo;t said out loud yet.
           </p>
+          <HostLine className="mt-3" />
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           <a href="#runscore" className="label text-muted-foreground hover:text-foreground">

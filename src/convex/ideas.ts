@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { allows, normaliseStage } from "./protocol";
+import { allows, isRevealed, normaliseStage } from "./protocol";
 import { clampScore } from "./runscore";
 
 const kindValidator = v.union(v.literal("human"), v.literal("agent"));
@@ -41,9 +41,24 @@ export const add = mutation({
     const room = await ctx.db.get(args.roomId);
     if (!room) throw new Error("Room not found.");
 
-    if (!allows(normaliseStage(room.stage), "contribute")) {
+    const stage = normaliseStage(room.stage);
+    const isBuildOn = Boolean(args.parentId);
+
+    if (stage === "open") {
+      if (isBuildOn) {
+        throw new Error(
+          "The pool is sealed. You can build on an idea once it has been revealed.",
+        );
+      }
+    } else if (stage === "assessment" && isBuildOn) {
+      // Build-ons are the only additions allowed after the reveal.
+    } else if (stage === "authorized") {
       throw new Error(
-        "The floor is closed. Nothing new goes down; score what is already there.",
+        "The room is authorized. It is closed to new contributions and build-ons.",
+      );
+    } else {
+      throw new Error(
+        "New entries are closed. Build on something already on the table.",
       );
     }
 
@@ -86,6 +101,7 @@ export const assess = mutation({
     note: v.optional(v.string()),
     contributor: v.string(),
     kind: kindValidator,
+    asymmetric: v.boolean(),
   },
   handler: async (ctx, args) => {
     const idea = await ctx.db.get(args.ideaId);
@@ -110,6 +126,7 @@ export const assess = mutation({
       note: args.note?.trim().slice(0, 400) || undefined,
       contributor,
       kind: args.kind,
+      asymmetric: args.asymmetric,
     };
 
     const existing = await ctx.db
@@ -144,6 +161,7 @@ export const assign = mutation({
     ideaId: v.id("ideas"),
     steward: v.string(),
     stewardKind: kindValidator,
+    mode: v.union(v.literal("explore"), v.literal("deliver")),
   },
   handler: async (ctx, args) => {
     const idea = await ctx.db.get(args.ideaId);
@@ -165,9 +183,64 @@ export const assign = mutation({
     await ctx.db.patch(args.ideaId, {
       steward,
       stewardKind: args.stewardKind,
+      assignmentMode: args.mode,
     });
 
     return args.ideaId;
+  },
+});
+
+/**
+ * A nod or a pushback. Company, not consensus: one per seat per idea, freely
+ * withdrawn, never counted in the runscore and never used to order the table.
+ */
+export const react = mutation({
+  args: {
+    ideaId: v.id("ideas"),
+    stance: v.union(v.literal("nod"), v.literal("push")),
+  },
+  handler: async (ctx, { ideaId, stance }) => {
+    const idea = await ctx.db.get(ideaId);
+    if (!idea) throw new Error("Idea not found.");
+
+    const userId = await loadRoom(ctx, idea.roomId);
+    const room = await ctx.db.get(idea.roomId);
+    if (!room) throw new Error("Room not found.");
+
+    if (!isRevealed(room)) {
+      throw new Error("The pool is sealed. There is nothing to nod at yet.");
+    }
+
+    const user = await ctx.db.get(userId);
+    const contributor = (user?.name ?? user?.email ?? "A seat").trim();
+
+    const existing = await ctx.db
+      .query("nods")
+      .withIndex("by_idea", (q) => q.eq("ideaId", ideaId))
+      .collect();
+    const mine = existing.find(
+      (row) => row.contributor.trim().toLowerCase() === contributor.toLowerCase(),
+    );
+
+    if (mine && mine.stance === stance) {
+      await ctx.db.delete(mine._id);
+      return null;
+    }
+
+    if (mine) {
+      await ctx.db.patch(mine._id, { stance });
+      return stance;
+    }
+
+    await ctx.db.insert("nods", {
+      roomId: idea.roomId,
+      ideaId,
+      contributor,
+      kind: "human",
+      stance,
+    });
+
+    return stance;
   },
 });
 
@@ -184,6 +257,12 @@ export const remove = mutation({
       .withIndex("by_idea", (q) => q.eq("ideaId", ideaId))
       .collect();
     for (const assessment of assessments) await ctx.db.delete(assessment._id);
+
+    const nods = await ctx.db
+      .query("nods")
+      .withIndex("by_idea", (q) => q.eq("ideaId", ideaId))
+      .collect();
+    for (const nod of nods) await ctx.db.delete(nod._id);
 
     // Detach any iterations so the record does not point at a deleted idea.
     const children = await ctx.db

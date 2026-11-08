@@ -24,7 +24,9 @@ import {
 } from "@/components/runscore-ui";
 import { Button } from "@/components/ui/button";
 import { DIMENSIONS, bandFor } from "@/convex/runscore";
-import { allows, type Stage, trackMeta } from "@/convex/protocol";
+import { allows, normaliseStage, type Stage, trackMeta } from "@/convex/protocol";
+import { HostCard } from "@/components/host";
+import { Reactions } from "@/components/reactions";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -97,7 +99,9 @@ export default function Room() {
   const averageBand =
     stats.averageScore === null ? null : bandFor(stats.averageScore);
 
+  const sealed = data.sealed;
   const canContribute = allows(room.stage, "contribute");
+  const canBuildOn = normaliseStage(room.stage) === "assessment";
   const canScore = allows(room.stage, "score");
   const canAssign = allows(room.stage, "assign");
 
@@ -106,12 +110,13 @@ export default function Room() {
     try {
       await setStage({ roomId: room._id, stage: next });
       if (next === "assessment") {
-        toast("The floor is closed", {
-          description: "Scoring is open. Nobody is assigned yet.",
+        toast("The pool is revealed", {
+          description:
+            "Everything is on the table at once, names attached. Scoring is open.",
         });
       } else if (next === "authorized") {
         toast("Authorized", {
-          description: "You decided. Work can be assigned now.",
+          description: "You decided. Assignments carry a brief now.",
         });
       } else {
         toast("Floor reopened", {
@@ -154,8 +159,16 @@ export default function Room() {
                 <Seal>Sealed room</Seal>
                 <StageChip stage={room.stage} />
                 <Meta>
-                  {stats.ideaCount} {stats.ideaCount === 1 ? "idea" : "ideas"} ·{" "}
-                  {stats.scoredCount} scored
+                  {sealed ? (
+                    <>
+                      {data.poolSize} sealed · nobody has seen them
+                    </>
+                  ) : (
+                    <>
+                      {stats.ideaCount} {stats.ideaCount === 1 ? "idea" : "ideas"}{" "}
+                      · {stats.scoredCount} scored
+                    </>
+                  )}
                 </Meta>
                 {room.isExample && (
                   <span className="label-sm border border-border px-1.5 py-0.5 text-muted-foreground">
@@ -192,21 +205,26 @@ export default function Room() {
         <StageRail
           stage={room.stage}
           pending={stagePending}
+          revealed={!sealed}
           onSetStage={changeStage}
         />
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_312px] lg:gap-10">
-          <aside className="min-w-0 lg:order-2 lg:self-start">
+          <aside className="order-2 min-w-0 lg:self-start">
             <motion.div
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.08 }}
               className="lg:sticky lg:top-8"
             >
+              <HostCard className="mb-4" />
+
               <div className="border border-border bg-card">
                 <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
                   <span className="label text-muted-foreground">Room reading</span>
-                  <span className="label-sm text-muted-foreground">Mean</span>
+                  <span className="label-sm text-muted-foreground">
+                    {sealed ? "Sealed" : "Mean"}
+                  </span>
                 </div>
                 <div className="px-4 py-5">
                   <p className="label-sm text-muted-foreground">
@@ -226,15 +244,17 @@ export default function Room() {
                     className="mt-4"
                   />
                   <p className="mt-3 text-[0.75rem] leading-5 text-muted-foreground">
-                    {stats.averageScore === null
-                      ? "No pass has been recorded yet. The room is allowed to sit unscored."
-                      : "Averages every scored idea once. Unscored ideas are held apart, not counted against the room."}
+                    {sealed
+                      ? "Nothing has been read yet. The pool opens once, together."
+                      : stats.averageScore === null
+                        ? "No pass has been recorded yet. The room is allowed to sit unscored."
+                        : "Averages every scored idea once. Unscored ideas are held apart, not counted against the room."}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-3 divide-x divide-border border-t border-border">
                   {[
-                    { label: "Ideas", value: stats.ideaCount },
+                    { label: sealed ? "Sealed" : "Ideas", value: stats.ideaCount },
                     { label: "Scored", value: stats.scoredCount },
                     { label: "Unscored", value: stats.unscoredCount },
                   ].map((cell) => (
@@ -276,18 +296,99 @@ export default function Room() {
             </motion.div>
           </aside>
 
-          <section className="min-w-0 lg:order-1">
+          <section className="order-1 min-w-0">
             <div className="mb-3 flex items-end justify-between gap-4">
               <div>
                 <p className="label text-muted-foreground">On the table</p>
-                <h2 className="display mt-2 text-2xl">Ranked by runscore</h2>
+                <h2 className="display mt-2 text-2xl">
+                  {sealed ? "Sealed pool" : "Ranked by runscore"}
+                </h2>
+                {!sealed && (
+                  <p className="label-sm mt-2 text-muted-foreground">
+                    Asymmetry is flagged beside the score, never added to it.
+                  </p>
+                )}
               </div>
-              <span className="label-sm text-muted-foreground">
-                {stats.scoredCount} of {stats.ideaCount} read
+              <span className="label-sm shrink-0 text-muted-foreground">
+                {sealed
+                  ? `${data.poolSize} down`
+                  : `${stats.scoredCount} of ${stats.ideaCount} read`}
               </span>
             </div>
 
-            {ideas.length === 0 ? (
+            {sealed ? (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+                className="border border-border bg-card"
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+                  <span className="label text-muted-foreground">Sealed pool</span>
+                  <span className="label-sm text-muted-foreground">
+                    {data.poolSize}{" "}
+                    {data.poolSize === 1 ? "contribution" : "contributions"}
+                  </span>
+                </div>
+                <div className="px-4 py-5 sm:px-6">
+                  <p className="display text-2xl leading-tight">
+                    Nobody sees these yet.
+                  </p>
+                  <p className="mt-2 max-w-[34rem] text-[0.8125rem] leading-6 text-muted-foreground">
+                    No author, no order, no anchor. Everything is revealed at the
+                    same moment when the floor closes, names attached — after
+                    everyone has already said their piece.
+                  </p>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {Array.from({ length: data.poolSize }).map((_, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.04 }}
+                        className="flex h-24 w-20 items-center justify-center border border-dashed border-border bg-secondary/40"
+                      >
+                        <span className="label-sm -rotate-90 whitespace-nowrap text-muted-foreground">
+                          Sealed
+                        </span>
+                      </motion.div>
+                    ))}
+                    {canContribute && (
+                      <button
+                        type="button"
+                        onClick={() => openAdd(null)}
+                        className="flex h-24 w-20 flex-col items-center justify-center gap-1.5 border border-dashed border-border text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+                      >
+                        <Plus className="size-4" />
+                        <span className="label-sm">Add</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {data.poolSize === 0 && (
+                    <p className="mt-4 text-[0.8125rem] leading-6 text-muted-foreground">
+                      Nothing down yet. The first thing doesn&rsquo;t have to be
+                      good. It has to be said.
+                    </p>
+                  )}
+
+                  <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border pt-4">
+                    <Button
+                      size="sm"
+                      onClick={() => changeStage("assessment")}
+                      disabled={stagePending}
+                    >
+                      {stagePending && <Loader2 className="size-3.5 animate-spin" />}
+                      Close the floor and reveal
+                    </Button>
+                    <span className="label-sm text-muted-foreground">
+                      One action. Everybody at once.
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            ) : ideas.length === 0 ? (
               <div className="hatch border border-dashed border-border">
                 <div className="flex flex-col items-start gap-4 bg-background/90 px-6 py-10">
                   <Seal>Nothing on the table</Seal>
@@ -365,6 +466,14 @@ export default function Room() {
                             size="sm"
                           />
                           <BandChip bandKey={idea.bandKey} />
+                          {idea.asymmetricSeats > 0 && (
+                            <span
+                              className="label-sm border border-dashed border-foreground/40 px-1.5 py-0.5 text-foreground"
+                              title="Precedent says it probably fails. The upside is not linear."
+                            >
+                              Asymmetric · {idea.asymmetricSeats}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -418,6 +527,18 @@ export default function Room() {
                         </div>
                       )}
 
+                      <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-2.5 sm:px-5">
+                        <Reactions
+                          ideaId={idea._id}
+                          nodCount={idea.nodCount}
+                          pushCount={idea.pushCount}
+                          myStance={idea.myStance}
+                        />
+                        <span className="label-sm ml-auto text-muted-foreground">
+                          Company, not evidence
+                        </span>
+                      </div>
+
                       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 sm:px-5">
                         <span className="label-sm text-muted-foreground">
                           {idea.assessments.length}{" "}
@@ -432,10 +553,13 @@ export default function Room() {
                             <span className="label-sm mr-1 inline-flex items-center gap-1.5 text-foreground">
                               <UserRoundCheck className="size-3" />
                               Steward · {idea.steward}
+                              {idea.assignmentMode
+                                ? ` · ${idea.assignmentMode === "explore" ? "exploration" : "delivery"}`
+                                : ""}
                             </span>
                           )}
 
-                          {canContribute && (
+                          {canBuildOn && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -481,9 +605,11 @@ export default function Room() {
             )}
 
             <p className="mt-5 font-mono text-[0.625rem] uppercase leading-5 tracking-[0.14em] text-muted-foreground">
-              {canScore
-                ? "A runscore is a reading, not permission. Nothing here authorizes a change outside the room."
-                : "This room is still listening. Scoring opens once the floor closes."}
+              {sealed
+                ? "Nothing above has been shown to the room. The pool opens once, together."
+                : canScore
+                  ? "A runscore is a reading, not permission. Nothing here authorizes a change outside the room."
+                  : "This room is still listening. Scoring opens once the floor closes."}
             </p>
           </section>
         </div>
@@ -497,6 +623,7 @@ export default function Room() {
         }}
         roomId={room._id}
         parent={iterateParent}
+        sealed={sealed}
       />
       <AssessDialog
         open={assessOpen}

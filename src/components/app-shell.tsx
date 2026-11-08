@@ -21,6 +21,7 @@ type RoomSummary = {
   _id: string;
   title: string;
   stage: string;
+  revealed: boolean;
   ideaCount: number;
   scoredCount: number;
   topScore: number | null;

@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AppShell } from "@/components/app-shell";
 import { Meta, Seal } from "@/components/brand";
+import { HostLine } from "@/components/host";
 import { StageChip } from "@/components/stage-rail";
 import { NewRoomDialog } from "@/components/room-forms";
 import {
@@ -90,18 +91,18 @@ export default function Dashboard() {
           className="flex flex-col gap-6 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between"
         >
           <div>
-            <p className="label flex items-center gap-2 text-muted-foreground">
-              The board
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="label text-muted-foreground">The board</span>
               <span className="h-px w-6 bg-border" />
-              sealed rooms only
-            </p>
+              <HostLine />
+            </div>
             <h1 className="display mt-3 text-4xl leading-[0.95] sm:text-5xl">
               {firstName ? `Welcome back, ${firstName}.` : "What hasn't been said yet."}
             </h1>
             <p className="mt-3 max-w-[34rem] text-sm leading-6 text-muted-foreground">
-              Every room opens with an open floor: everyone gets heard before
-              anything is judged. Then the room scores what could survive, and you
-              decide what actually gets worked on.
+              Every room opens with a sealed pool: no author, no order, no anchor.
+              When the floor closes, everything is revealed at once. Then the room
+              scores what could survive, and you decide what gets worked on.
             </p>
           </div>
           <Button onClick={() => setNewRoomOpen(true)} className="shrink-0 self-start">
@@ -141,10 +142,11 @@ export default function Dashboard() {
                     The table is clear.
                   </h2>
                   <p className="mt-3 max-w-[32rem] text-sm leading-6 text-muted-foreground">
-                    Start with a room and an open floor. Nothing gets graded until
-                    everyone has had their say — including the half-formed thing
-                    you almost didn&rsquo;t bring. Or open the worked example and
-                    read how a runscore behaves when seats disagree.
+                    Start with a room and a sealed pool. Contributions stay hidden
+                    until the floor closes, so nothing anchors the room — not a
+                    name, not an order, not the half-formed thing you almost
+                    didn&rsquo;t bring. Or open the worked example to see a reveal
+                    that has already happened.
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row">
@@ -167,6 +169,7 @@ export default function Dashboard() {
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {roomList.map((room, index) => {
                 const band = room.topScore === null ? null : bandFor(room.topScore);
+                const sealed = room.stage === "open" && !room.revealed;
                 return (
                   <motion.div
                     key={room._id}
@@ -183,8 +186,9 @@ export default function Dashboard() {
                           Room {String(index + 1).padStart(2, "0")}
                         </span>
                         <Meta>
-                          {room.ideaCount} {room.ideaCount === 1 ? "idea" : "ideas"} ·{" "}
-                          {room.scoredCount} scored
+                          {sealed
+                            ? `${room.ideaCount} sealed`
+                            : `${room.ideaCount} ${room.ideaCount === 1 ? "idea" : "ideas"} · ${room.scoredCount} scored`}
                         </Meta>
                       </div>
 

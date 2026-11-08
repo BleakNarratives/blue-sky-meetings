@@ -9,7 +9,7 @@ import {
   type BandKey,
   type Dimensions,
 } from "./runscore";
-import { normaliseStage } from "./protocol";
+import { isRevealed, normaliseStage } from "./protocol";
 
 async function requireUserId(ctx: QueryCtx | MutationCtx): Promise<Id<"users">> {
   const userId = await getAuthUserId(ctx);
@@ -89,6 +89,7 @@ export const list = query({
         title: room.title,
         premise: room.premise,
         stage: normaliseStage(room.stage),
+        revealed: isRevealed(room),
         createdAt: room._creationTime,
         ideaCount: ideas.length,
         scoredCount: scored.length,
@@ -121,6 +122,13 @@ export const get = query({
       .withIndex("by_room", (q) => q.eq("roomId", roomId))
       .collect();
     const byId = new Map(ideas.map((idea) => [idea._id, idea]));
+    const nods = await ctx.db
+      .query("nods")
+      .withIndex("by_room", (q) => q.eq("roomId", roomId))
+      .collect();
+    const user = await ctx.db.get(userId);
+    const seatName = (user?.name ?? user?.email ?? "").trim().toLowerCase();
+    const sealed = !isRevealed(room);
 
     const rows = ideas.map((idea) => {
       const own = assessments
@@ -146,6 +154,22 @@ export const get = query({
         parentTitle: idea.parentId ? (byId.get(idea.parentId)?.title ?? null) : null,
         steward: idea.steward ?? null,
         stewardKind: idea.stewardKind ?? null,
+        assignmentMode: idea.assignmentMode ?? null,
+        asymmetricSeats: own.filter((a) => a.asymmetric === true).length,
+        nodCount: nods.filter(
+          (n) => n.ideaId === idea._id && n.stance === "nod",
+        ).length,
+        pushCount: nods.filter(
+          (n) => n.ideaId === idea._id && n.stance === "push",
+        ).length,
+        myStance:
+          seatName.length > 0
+            ? (nods.find(
+                (n) =>
+                  n.ideaId === idea._id &&
+                  n.contributor.trim().toLowerCase() === seatName,
+              )?.stance ?? null)
+            : null,
         createdAt: idea._creationTime,
         score: reading?.score ?? null,
         bandKey: reading?.band.key ?? null,
@@ -159,6 +183,7 @@ export const get = query({
           warrant: a.warrant,
           reach: a.reach,
           drag: a.drag,
+          asymmetric: a.asymmetric === true,
           createdAt: a._creationTime,
         })),
       };
@@ -190,6 +215,8 @@ export const get = query({
         createdAt: room._creationTime,
         isExample: room.isExample === true,
       },
+      sealed,
+      poolSize: rows.length,
       stats: {
         ideaCount: rows.length,
         scoredCount: scored,
@@ -197,7 +224,7 @@ export const get = query({
         averageScore: scored > 0 ? Math.round((total / scored) * 10) / 10 : null,
         bands,
       },
-      ideas: rows,
+      ideas: sealed ? [] : rows,
     };
   },
 });
@@ -249,7 +276,12 @@ export const setStage = mutation({
       );
     }
 
-    await ctx.db.patch(roomId, { stage });
+    // The first look at the pool is the reveal, and it is permanent: reopening
+    // the floor later does not re-blind what everyone has already seen.
+    await ctx.db.patch(
+      roomId,
+      stage === "open" ? { stage } : { stage, revealed: true },
+    );
     return stage;
   },
 });
@@ -293,6 +325,7 @@ export const createExample = mutation({
         "Four devices hold four partial versions of the same ecosystem. Nothing merges until the evidence survives the room.",
       isExample: true,
       stage: "assessment",
+      revealed: true,
     });
 
     const seed: Array<{
@@ -306,6 +339,7 @@ export const createExample = mutation({
         contributor: string;
         kind: "human" | "agent";
         note?: string;
+        asymmetric?: boolean;
         d: Dimensions;
       }>;
     }> = [
@@ -365,12 +399,14 @@ export const createExample = mutation({
           {
             contributor: "lantern",
             kind: "agent",
+            asymmetric: true,
             d: { novelty: 8, warrant: 6, reach: 7, drag: 4 },
           },
           {
             contributor: "atlas-4",
             kind: "agent",
             note: "Elegant, but every consumer must understand four shapes.",
+            asymmetric: true,
             d: { novelty: 8, warrant: 5, reach: 8, drag: 3 },
           },
           {
@@ -455,8 +491,38 @@ export const createExample = mutation({
           note: assessment.note,
           contributor: assessment.contributor,
           kind: assessment.kind,
+          asymmetric: assessment.asymmetric === true,
         });
       }
+    }
+
+    const nodSeed: Array<{
+      idea: string;
+      stance: "nod" | "push";
+      contributor: string;
+      kind: "human" | "agent";
+    }> = [
+      { idea: "A single inventory, written once", stance: "nod", contributor: "atlas-4", kind: "agent" },
+      { idea: "A single inventory, written once", stance: "nod", contributor: "lantern", kind: "agent" },
+      { idea: "Hashes before the ledger", stance: "nod", contributor: "atlas-4", kind: "agent" },
+      { idea: "Hashes before the ledger", stance: "nod", contributor: "M. Okafor", kind: "human" },
+      { idea: "Reconcile on read, not on write", stance: "nod", contributor: "M. Okafor", kind: "human" },
+      { idea: "Reconcile on read, not on write", stance: "push", contributor: "atlas-4", kind: "agent" },
+      { idea: "Repair the A9 before a fifth copy", stance: "nod", contributor: "lantern", kind: "agent" },
+      { idea: "Rebuild the ecosystem as one monorepo", stance: "push", contributor: "M. Okafor", kind: "human" },
+      { idea: "Rebuild the ecosystem as one monorepo", stance: "push", contributor: "lantern", kind: "agent" },
+    ];
+
+    for (const nod of nodSeed) {
+      const ideaId = created.get(nod.idea);
+      if (!ideaId) continue;
+      await ctx.db.insert("nods", {
+        roomId,
+        ideaId,
+        contributor: nod.contributor,
+        kind: nod.kind,
+        stance: nod.stance,
+      });
     }
 
     return roomId;

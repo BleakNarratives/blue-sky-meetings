@@ -64,6 +64,9 @@ const schema = defineSchema(
       isExample: v.optional(v.boolean()),
       // absent on rooms created before stages existed; treat as "open"
       stage: v.optional(stageValidator),
+      // true once the sealed pool has been shown to the room. Reopening the
+      // floor does not re-blind contributions everyone has already seen.
+      revealed: v.optional(v.boolean()),
     }).index("by_owner", ["ownerId"]),
 
     // An unannounced proposal, put on the table by a human or an agent.
@@ -79,6 +82,10 @@ const schema = defineSchema(
       // assigned only after the room is authorized
       steward: v.optional(v.string()),
       stewardKind: v.optional(contributorKindValidator),
+      // exploration and delivery are tracked as different commitments
+      assignmentMode: v.optional(
+        v.union(v.literal("explore"), v.literal("deliver")),
+      ),
     }).index("by_room", ["roomId"]),
 
     // One scoring pass over one idea: four 0–10 dimensions plus rationale.
@@ -92,6 +99,21 @@ const schema = defineSchema(
       note: v.optional(v.string()),
       contributor: v.string(),
       kind: contributorKindValidator,
+      // Precedent says it probably fails; the upside is not linear. Flagged
+      // beside the score, never added to it.
+      asymmetric: v.optional(v.boolean()),
+    })
+      .index("by_idea", ["ideaId"])
+      .index("by_room", ["roomId"]),
+
+    // Company, not consensus: one nod or pushback per seat per idea. Never
+    // counted in the runscore and never used to order the table.
+    nods: defineTable({
+      roomId: v.id("rooms"),
+      ideaId: v.id("ideas"),
+      contributor: v.string(),
+      kind: contributorKindValidator,
+      stance: v.union(v.literal("nod"), v.literal("push")),
     })
       .index("by_idea", ["ideaId"])
       .index("by_room", ["roomId"]),
