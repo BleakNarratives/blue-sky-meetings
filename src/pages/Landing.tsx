@@ -1,14 +1,23 @@
 import { motion } from "framer-motion";
 import {
+  Anchor,
   ArrowRight,
   ArrowUpRight,
   Dices,
   DoorClosed,
+  Eye,
+  FileText,
   Gavel,
+  GitMerge,
+  Link2,
   Lock,
   Megaphone,
+  MessagesSquare,
+  Mic,
   Shapes,
+  Swords,
   Tag,
+  Vote,
 } from "lucide-react";
 import { Link } from "react-router";
 import { Brand, Meta, Seal } from "@/components/brand";
@@ -101,6 +110,12 @@ function Nav() {
             className="label text-muted-foreground transition-colors hover:text-foreground"
           >
             Ground rules
+          </a>
+          <a
+            href="#borrowed"
+            className="label text-muted-foreground transition-colors hover:text-foreground"
+          >
+            What we borrowed
           </a>
         </nav>
 
@@ -594,17 +609,17 @@ function RulesSection() {
               <span className="italic">Holy ground</span> underneath.
             </h2>
             <p className="mt-5 max-w-[27rem] text-[0.9rem] leading-7 text-background/65">
-              This is a room, not a stage. Nothing comes in that existed before the
-              meeting; nothing leaves that was made in it. Syntax AI hosts the
-              room, reads every pass and flags what the arithmetic would miss. It
-              advises. You authorize. Attribution is permanent, and confidence is
-              not evidence.
+              This is a room, not a stage. Nothing comes in unannounced, and
+              nothing leaves without a name on it. Links and files are declared,
+              labelled prior art or context, and attached to whoever brought them.
+              Syntax AI hosts the room, reads every pass and flags what the
+              arithmetic would miss. It advises. You authorize.
             </p>
 
             <div className="mt-8 border-t border-background/20 pt-5">
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { label: "Inbound", value: "Closed" },
+                  { label: "Inbound", value: "Declared" },
                   { label: "Outbound", value: "Closed" },
                 ].map((item) => (
                   <div key={item.label}>
@@ -614,10 +629,10 @@ function RulesSection() {
                 ))}
               </div>
               <p className="mt-5 max-w-[27rem] text-[0.75rem] leading-6 text-background/50">
-                Models carry knowledge from before the meeting, and we won&rsquo;t
-                pretend otherwise. What the room enforces is disclosure,
-                attribution, and your authorization before anything from outside is
-                used.
+                Models carry knowledge from before the meeting, and we&rsquo;re not
+                going to pretend otherwise. Neither is a person with a folder of
+                screenshots. What the room enforces is disclosure, attribution, and
+                your authorization before anything from outside is used.
               </p>
             </div>
           </motion.div>
@@ -704,6 +719,119 @@ function MakingSection() {
   );
 }
 
+const BORROWED = [
+  {
+    source: "Scavenger hunt",
+    title: "Point at the thing.",
+    body: "Links and files live in the room, labelled prior art or context. The hunt is for the evidence, and the room gets to see all of it — not a summary someone made in their head.",
+    icon: Link2,
+  },
+  {
+    source: "Think tank",
+    title: "Six chairs, one question.",
+    body: "An advocate, an operator, a skeptic, a market voice, a chair and a cameo. Anyone can sit in a chair; every reading is signed. Advice on the record, never a score.",
+    icon: MessagesSquare,
+  },
+  {
+    source: "Shark Tank",
+    title: "Two ideas enter. One gets called.",
+    body: "Ballots carry a case for and a case against. A human calls the bout. The loser stays on the table with the dissent attached — no theatrics, no deletion.",
+    icon: Swords,
+  },
+  {
+    source: "Vote-off television",
+    title: "One seat, one ballot.",
+    body: "No stacked votes and no anonymous dogpiling. Change your mind freely; you still only count once. The tally is advice. The call is a person's.",
+    icon: Vote,
+  },
+  {
+    source: "Pitch night",
+    title: "One breath before the stage.",
+    body: "Every idea has to survive a single sentence in its own words. A deck can come later. The one-breath thesis cannot be outsourced to a slide.",
+    icon: Mic,
+  },
+  {
+    source: "Mystery Science Theater",
+    title: "Commentary, clearly labelled.",
+    body: "The cameo chair exists for the outside voice. It can be funny, blunt or wrong, but it is a reading with a name on it, not a verdict from nowhere.",
+    icon: Eye,
+  },
+  {
+    source: "Cross-pollination",
+    title: "Two parents, one hybrid.",
+    body: "Breed a concept with a business model, or a name with a mechanism. The hybrid keeps both lineages and inherits no score: the combination has to earn its own pass.",
+    icon: GitMerge,
+  },
+  {
+    source: "Pulling yourself up",
+    title: "The bootstraps, named.",
+    body: "Every idea can name the asset it actually pulls on: a list, a room, a skill, a thing already in hand. A bootstrap is not a virtue. It is a thing you can point at.",
+    icon: Anchor,
+  },
+  {
+    source: "Reverse Jenga",
+    title: "Pull a piece out.",
+    body: "One of the arena's standing questions: remove a component and see what still stands. Stability is easier to test than to argue about.",
+    icon: FileText,
+  },
+] as const;
+
+function BorrowedSection() {
+  return (
+    <section id="borrowed" className="border-b border-border bg-secondary/40">
+      <div className="mx-auto w-full max-w-[1200px] px-5 py-16 lg:py-24">
+        <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
+          <motion.div {...fade}>
+            <p className="label text-muted-foreground">06 / borrowed, deliberately</p>
+            <h2 className="display mt-4 text-4xl leading-[0.98] sm:text-5xl">
+              A magpie with
+              <br />
+              <span className="italic">a memory.</span>
+            </h2>
+            <p className="mt-5 max-w-[27rem] text-[0.9rem] leading-7 text-muted-foreground">
+              Pitch night, think tanks, the arena, the commentary track, the
+              elimination vote, the scavenger hunt. Every one of those formats
+              works for a reason. Here is the reason, with the theatre removed.
+            </p>
+            <p className="mt-4 max-w-[27rem] text-[0.9rem] leading-7 text-muted-foreground">
+              None of it replaces the protocol. Sources are declarations, not
+              authority. The board advises. The arena advises. The runscore is
+              still a reading. A human still authorizes.
+            </p>
+          </motion.div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {BORROWED.map((item, index) => {
+              const Icon = item.icon;
+              return (
+                <motion.div
+                  key={item.title}
+                  {...fade}
+                  transition={{ ...fade.transition, delay: index * 0.04 }}
+                  className="border border-border bg-card p-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon className="size-3.5" strokeWidth={1.7} />
+                    <span className="label-sm text-muted-foreground">
+                      {item.source}
+                    </span>
+                  </div>
+                  <h3 className="mt-2.5 text-[0.95rem] font-semibold leading-snug tracking-tight">
+                    {item.title}
+                  </h3>
+                  <p className="mt-1.5 text-[0.78rem] leading-6 text-muted-foreground">
+                    {item.body}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ClosingCTA() {
   const { isAuthenticated } = useAuth();
   return (
@@ -779,6 +907,7 @@ export default function Landing() {
         <StageSection />
         <RulesSection />
         <MakingSection />
+        <BorrowedSection />
         <ClosingCTA />
       </main>
       <Footer />

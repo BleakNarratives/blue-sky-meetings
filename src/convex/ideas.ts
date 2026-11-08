@@ -35,6 +35,7 @@ export const add = mutation({
     kind: kindValidator,
     track: v.optional(trackValidator),
     parentId: v.optional(v.id("ideas")),
+    bootstrap: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await loadRoom(ctx, args.roomId);
@@ -81,6 +82,65 @@ export const add = mutation({
       kind: args.kind,
       track: args.track ?? "concept",
       parentId: args.parentId,
+      bootstrap: args.bootstrap?.trim().slice(0, 160) || undefined,
+    });
+  },
+});
+
+/**
+ * Breed two ideas into a third. A hybrid carries both lineages and starts
+ * unscored: the combination gets no inherited score, only an inherited
+ * question. Allowed only while the room is still working things out.
+ */
+export const breed = mutation({
+  args: {
+    aId: v.id("ideas"),
+    bId: v.id("ideas"),
+    title: v.string(),
+    thesis: v.string(),
+    contributor: v.string(),
+    kind: kindValidator,
+    track: v.optional(trackValidator),
+    bootstrap: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (args.aId === args.bId) {
+      throw new Error("Breeding takes two different ideas.");
+    }
+
+    const a = await ctx.db.get(args.aId);
+    if (!a) throw new Error("Idea not found.");
+    const b = await ctx.db.get(args.bId);
+    if (!b || b.roomId !== a.roomId) {
+      throw new Error("Both ideas have to be on this table.");
+    }
+
+    await loadRoom(ctx, a.roomId);
+    const room = await ctx.db.get(a.roomId);
+    if (!room) throw new Error("Room not found.");
+
+    if (normaliseStage(room.stage) !== "assessment") {
+      throw new Error(
+        "Breeding happens while the room is assessing. Once it is authorized, the work is chosen.",
+      );
+    }
+
+    const title = args.title.trim().slice(0, 120);
+    if (title.length < 3) throw new Error("Give the hybrid a name.");
+    const thesis = args.thesis.trim().slice(0, 600);
+    if (thesis.length < 12) {
+      throw new Error("Name what only the combination can do.");
+    }
+
+    return await ctx.db.insert("ideas", {
+      roomId: a.roomId,
+      title,
+      thesis,
+      contributor: args.contributor.trim().slice(0, 60) || "Unattributed",
+      kind: args.kind,
+      track: args.track ?? a.track ?? "concept",
+      bootstrap: args.bootstrap?.trim().slice(0, 160) || undefined,
+      bredFrom: [args.aId, args.bId],
     });
   },
 });
@@ -162,6 +222,11 @@ export const assign = mutation({
     steward: v.string(),
     stewardKind: kindValidator,
     mode: v.union(v.literal("explore"), v.literal("deliver")),
+    bar: v.union(
+      v.literal("provisional"),
+      v.literal("viable"),
+      v.literal("runaway"),
+    ),
   },
   handler: async (ctx, args) => {
     const idea = await ctx.db.get(args.ideaId);
@@ -184,6 +249,7 @@ export const assign = mutation({
       steward,
       stewardKind: args.stewardKind,
       assignmentMode: args.mode,
+      bar: args.bar,
     });
 
     return args.ideaId;
@@ -264,15 +330,56 @@ export const remove = mutation({
       .collect();
     for (const nod of nods) await ctx.db.delete(nod._id);
 
-    // Detach any iterations so the record does not point at a deleted idea.
+    // Declared sources go with the idea, including any uploaded file.
+    const sources = await ctx.db
+      .query("sources")
+      .withIndex("by_idea", (q) => q.eq("ideaId", ideaId))
+      .collect();
+    for (const source of sources) {
+      if (source.storageId) await ctx.storage.delete(source.storageId);
+      await ctx.db.delete(source._id);
+    }
+
+    const readings = await ctx.db
+      .query("readings")
+      .withIndex("by_idea", (q) => q.eq("ideaId", ideaId))
+      .collect();
+    for (const reading of readings) await ctx.db.delete(reading._id);
+
+    // A bout cannot survive one of its sides. Clear its ballots too.
+    const bouts = await ctx.db
+      .query("bouts")
+      .withIndex("by_room", (q) => q.eq("roomId", idea.roomId))
+      .collect();
+    for (const bout of bouts) {
+      if (bout.aId !== ideaId && bout.bId !== ideaId) continue;
+      const votes = await ctx.db
+        .query("boutVotes")
+        .withIndex("by_bout", (q) => q.eq("boutId", bout._id))
+        .collect();
+      for (const vote of votes) await ctx.db.delete(vote._id);
+      await ctx.db.delete(bout._id);
+    }
+
+    // Detach any lineage so the record does not point at a deleted idea.
     const children = await ctx.db
       .query("ideas")
       .withIndex("by_room", (q) => q.eq("roomId", idea.roomId))
       .collect();
     for (const child of children) {
+      const patch: { parentId?: undefined; bredFrom?: Id<"ideas">[] } = {};
+      let changed = false;
       if (child.parentId === ideaId) {
-        await ctx.db.patch(child._id, { parentId: undefined });
+        patch.parentId = undefined;
+        changed = true;
       }
+      if (child.bredFrom?.includes(ideaId)) {
+        const remaining = child.bredFrom.filter((id) => id !== ideaId);
+        patch.bredFrom = remaining.length > 0 ? remaining : undefined;
+        changed = true;
+      }
+      if (!changed) continue;
+      await ctx.db.patch(child._id, patch);
     }
 
     await ctx.db.delete(ideaId);

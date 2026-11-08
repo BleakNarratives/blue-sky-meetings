@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Syntax AI hosts the room. It records, seals, reads and flags. It advises;
- * it never votes, authorizes, or assigns.
+ * it never votes, authorizes, assigns, or calls a bout.
  */
 export function HostCard({ className }: { className?: string }) {
   return (
@@ -21,8 +21,8 @@ export function HostCard({ className }: { className?: string }) {
         <Mark className="size-7 border-0" />
       </div>
       <p className="mt-3 text-[0.75rem] leading-5 text-background/60">
-        Keeps the record, seals the pool, reads every pass. It advises the room.
-        It never votes, authorizes, or assigns.
+        Keeps the record, seals the pool, reads every pass, convenes the board.
+        It advises the room. It never votes, authorizes, assigns, or calls a bout.
       </p>
     </div>
   );

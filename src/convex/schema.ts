@@ -86,6 +86,18 @@ const schema = defineSchema(
       assignmentMode: v.optional(
         v.union(v.literal("explore"), v.literal("deliver")),
       ),
+      // the runscore band this assignment is judged against, declared up front
+      bar: v.optional(
+        v.union(
+          v.literal("provisional"),
+          v.literal("viable"),
+          v.literal("runaway"),
+        ),
+      ),
+      // the asset it actually pulls on. Bootstraps are named, not implied.
+      bootstrap: v.optional(v.string()),
+      // a hybrid carries both lineages, and starts unscored like everything else
+      bredFrom: v.optional(v.array(v.id("ideas"))),
     }).index("by_room", ["roomId"]),
 
     // One scoring pass over one idea: four 0–10 dimensions plus rationale.
@@ -117,6 +129,61 @@ const schema = defineSchema(
     })
       .index("by_idea", ["ideaId"])
       .index("by_room", ["roomId"]),
+
+    // Declared source material: a link or a file, plus what it is for. The
+    // room does not pretend nothing came in from outside. It requires the
+    // room to see it, labelled, with an author.
+    sources: defineTable({
+      roomId: v.id("rooms"),
+      ideaId: v.optional(v.id("ideas")),
+      kind: v.union(v.literal("link"), v.literal("file")),
+      name: v.string(),
+      url: v.optional(v.string()),
+      storageId: v.optional(v.id("_storage")),
+      note: v.optional(v.string()),
+      // "prior": someone has already built this. "context": background only.
+      declared: v.union(v.literal("prior"), v.literal("context")),
+      contributor: v.string(),
+    })
+      .index("by_room", ["roomId"])
+      .index("by_idea", ["ideaId"]),
+
+    // A seat speaking from a chair. The board is a set of lenses, not a panel
+    // of authorities: a reading is an argument on the record, never a score.
+    readings: defineTable({
+      roomId: v.id("rooms"),
+      ideaId: v.id("ideas"),
+      chair: v.string(),
+      body: v.string(),
+      contributor: v.string(),
+      kind: contributorKindValidator,
+    })
+      .index("by_room", ["roomId"])
+      .index("by_idea", ["ideaId"]),
+
+    // Head to head. A bout never moves a runscore; it produces a call with
+    // the dissent still attached to it.
+    bouts: defineTable({
+      roomId: v.id("rooms"),
+      aId: v.id("ideas"),
+      bId: v.id("ideas"),
+      question: v.string(),
+      status: v.union(v.literal("open"), v.literal("called")),
+      winnerId: v.optional(v.id("ideas")),
+      rationale: v.optional(v.string()),
+      calledBy: v.optional(v.string()),
+      createdBy: v.string(),
+    }).index("by_room", ["roomId"]),
+
+    boutVotes: defineTable({
+      boutId: v.id("bouts"),
+      roomId: v.id("rooms"),
+      contributor: v.string(),
+      kind: contributorKindValidator,
+      side: v.union(v.literal("a"), v.literal("b"), v.literal("draw")),
+      forCase: v.optional(v.string()),
+      againstCase: v.optional(v.string()),
+    }).index("by_bout", ["boutId"]),
   },
   {
     schemaValidation: false,

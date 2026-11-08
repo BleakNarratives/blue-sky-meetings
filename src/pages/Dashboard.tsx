@@ -67,7 +67,7 @@ export default function Dashboard() {
       const roomId = await createExample({});
       toast("Example room opened", {
         description:
-          "Five ideas, an iteration, twelve scoring passes, and one disagreement kept intact.",
+          "Six ideas, a hybrid, a board in session, fourteen scoring passes, and one called bout kept intact.",
       });
       navigate(`/room/${roomId}`);
     } catch (error) {

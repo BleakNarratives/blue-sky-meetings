@@ -9,9 +9,14 @@ import {
   AddIdeaDialog,
   AssessDialog,
   AssignDialog,
+  BreedDialog,
   type AssessTarget,
+  type BreedIdea,
   type StewardTarget,
 } from "@/components/room-forms";
+import { ArenaSection, BoutDialog } from "@/components/arena";
+import { BoardDialog } from "@/components/board";
+import { SourcesDialog, SourcesPanel } from "@/components/sources";
 import { StageChip, StageRail } from "@/components/stage-rail";
 import {
   BandChip,
@@ -31,8 +36,11 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   CornerDownRight,
+  GitMerge,
+  Link2,
   Loader2,
   Lock,
+  MessagesSquare,
   Plus,
   Scale,
   UserRoundCheck,
@@ -65,6 +73,19 @@ export default function Room() {
   const [assessOpen, setAssessOpen] = useState(false);
   const [assignTarget, setAssignTarget] = useState<StewardTarget | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [sourcesIdea, setSourcesIdea] = useState<{
+    _id: Id<"ideas">;
+    title: string;
+  } | null>(null);
+  const [boardOpen, setBoardOpen] = useState(false);
+  const [boardIdea, setBoardIdea] = useState<{
+    _id: Id<"ideas">;
+    title: string;
+  } | null>(null);
+  const [breedOpen, setBreedOpen] = useState(false);
+  const [breedTarget, setBreedTarget] = useState<BreedIdea | null>(null);
+  const [boutOpen, setBoutOpen] = useState(false);
   const [stagePending, setStagePending] = useState(false);
 
   if (data === undefined) {
@@ -270,17 +291,14 @@ export default function Room() {
                 </div>
               </div>
 
-              <div className="mt-4 border border-border bg-secondary/50 px-4 py-4">
-                <p className="label flex items-center gap-2 text-muted-foreground">
-                  <Lock className="size-3.5" />
-                  Inbound closed · Outbound closed
-                </p>
-                <p className="mt-2 text-[0.75rem] leading-5 text-muted-foreground">
-                  Nothing comes in that existed before the meeting. Nothing leaves
-                  that was made in it. Prior knowledge has to be declared, not
-                  smuggled.
-                </p>
-              </div>
+              <SourcesPanel
+                rows={data.sources.filter((source) => source.ideaId === null)}
+                canDeclare
+                onOpen={() => {
+                  setSourcesIdea(null);
+                  setSourcesOpen(true);
+                }}
+              />
 
               <div className="mt-4 border border-border bg-secondary/50 px-4 py-4">
                 <p className="label flex items-center gap-2 text-muted-foreground">
@@ -419,6 +437,12 @@ export default function Room() {
                   const band = idea.bandKey ? bandMeta(idea.bandKey) : null;
                   const notes = idea.assessments.filter((a) => a.note);
                   const track = trackMeta(idea.track);
+                  const ideaSources = data.sources.filter(
+                    (source) => source.ideaId === idea._id,
+                  );
+                  const ideaReadings = data.readings.filter(
+                    (reading) => reading.ideaId === idea._id,
+                  );
                   return (
                     <motion.article
                       key={idea._id}
@@ -455,6 +479,20 @@ export default function Room() {
                             <p className="label-sm mt-2 flex items-center gap-1.5 text-muted-foreground">
                               <CornerDownRight className="size-3" />
                               Builds on {idea.parentTitle}
+                            </p>
+                          )}
+                          {idea.bredFromTitles.length > 0 && (
+                            <p className="label-sm mt-2 flex items-center gap-1.5 text-muted-foreground">
+                              <GitMerge className="size-3" />
+                              Bred from {idea.bredFromTitles.join(" + ")}
+                            </p>
+                          )}
+                          {idea.bootstrap && (
+                            <p className="mt-2 text-[0.75rem] leading-5 text-muted-foreground">
+                              <span className="label-sm text-foreground">
+                                Pulls on
+                              </span>{" "}
+                              {idea.bootstrap}
                             </p>
                           )}
                         </div>
@@ -556,7 +594,64 @@ export default function Room() {
                               {idea.assignmentMode
                                 ? ` · ${idea.assignmentMode === "explore" ? "exploration" : "delivery"}`
                                 : ""}
+                              {idea.bar ? ` · bar ${bandMeta(idea.bar).label}` : ""}
                             </span>
+                          )}
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="px-2"
+                            onClick={() => {
+                              setSourcesIdea({
+                                _id: idea._id,
+                                title: idea.title,
+                              });
+                              setSourcesOpen(true);
+                            }}
+                          >
+                            <Link2 className="size-3" />
+                            Sources
+                            {ideaSources.length > 0
+                              ? ` · ${ideaSources.length}`
+                              : ""}
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="px-2"
+                            onClick={() => {
+                              setBoardIdea({
+                                _id: idea._id,
+                                title: idea.title,
+                              });
+                              setBoardOpen(true);
+                            }}
+                          >
+                            <MessagesSquare className="size-3" />
+                            Board
+                            {ideaReadings.length > 0
+                              ? ` · ${ideaReadings.length}`
+                              : ""}
+                          </Button>
+
+                          {canBuildOn && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setBreedTarget({
+                                  _id: idea._id,
+                                  title: idea.title,
+                                  track: idea.track as BreedIdea["track"],
+                                });
+                                setBreedOpen(true);
+                              }}
+                            >
+                              <GitMerge className="size-3" />
+                              Breed
+                            </Button>
                           )}
 
                           {canBuildOn && (
@@ -604,6 +699,14 @@ export default function Room() {
               </div>
             )}
 
+            {!sealed && (
+              <ArenaSection
+                bouts={data.bouts}
+                canOpen={canScore}
+                onOpenBout={() => setBoutOpen(true)}
+              />
+            )}
+
             <p className="mt-5 font-mono text-[0.625rem] uppercase leading-5 tracking-[0.14em] text-muted-foreground">
               {sealed
                 ? "Nothing above has been shown to the room. The pool opens once, together."
@@ -640,6 +743,57 @@ export default function Room() {
           if (!open) setAssignTarget(null);
         }}
         idea={assignTarget}
+      />
+      <SourcesDialog
+        open={sourcesOpen}
+        onOpenChange={(open) => {
+          setSourcesOpen(open);
+          if (!open) setSourcesIdea(null);
+        }}
+        roomId={room._id}
+        idea={sourcesIdea}
+        rows={data.sources.filter((source) =>
+          sourcesIdea
+            ? source.ideaId === sourcesIdea._id
+            : source.ideaId === null,
+        )}
+      />
+      <BoardDialog
+        open={boardOpen}
+        onOpenChange={(open) => {
+          setBoardOpen(open);
+          if (!open) setBoardIdea(null);
+        }}
+        idea={boardIdea}
+        rows={data.readings.filter(
+          (reading) => reading.ideaId === boardIdea?._id,
+        )}
+      />
+      <BreedDialog
+        open={breedOpen}
+        onOpenChange={(open) => {
+          setBreedOpen(open);
+          if (!open) setBreedTarget(null);
+        }}
+        source={breedTarget}
+        ideas={ideas
+          .filter((idea) => idea._id !== breedTarget?._id)
+          .map((idea) => ({
+            _id: idea._id,
+            title: idea.title,
+            track: idea.track as BreedIdea["track"],
+          }))}
+      />
+      <BoutDialog
+        open={boutOpen}
+        onOpenChange={setBoutOpen}
+        roomId={room._id}
+        ideas={ideas.map((idea) => ({
+          _id: idea._id,
+          title: idea.title,
+          track: idea.track,
+          score: idea.score,
+        }))}
       />
     </AppShell>
   );

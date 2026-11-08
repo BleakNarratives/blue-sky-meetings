@@ -24,7 +24,8 @@ export const STAGES = [
     short: "Assessing",
     blurb:
       "The pool is revealed all at once, names attached. Every contribution gets the same reading — and asymmetry is flagged, never scored.",
-    rule: "Scoring and build-ons are open. No assignments yet.",
+    rule:
+      "Scoring, build-ons, breeding, sources and bouts are open. No assignments yet.",
     action: "Authorize",
   },
   {
@@ -146,3 +147,97 @@ export type Track = (typeof TRACKS)[number]["key"];
 export function trackMeta(track: string | undefined | null) {
   return TRACKS.find((entry) => entry.key === track) ?? TRACKS[0];
 }
+
+/**
+ * The board. Six chairs, one question. A chair is a lens, not an authority:
+ * anyone can sit in it, readings are signed, and nothing here moves a score.
+ */
+export const CHAIRS = [
+  {
+    key: "chair",
+    label: "Chair",
+    tag: "Frames",
+    role: "Keeps the question honest and calls the room to order.",
+    question: "What are we actually deciding?",
+  },
+  {
+    key: "advocate",
+    label: "Advocate",
+    tag: "Advocacy",
+    role: "Makes the strongest honest case for it.",
+    question: "What is the best version of this?",
+  },
+  {
+    key: "operator",
+    label: "Operator",
+    tag: "Expert",
+    role: "Says what it costs to actually run.",
+    question: "Who maintains it in month eighteen?",
+  },
+  {
+    key: "skeptic",
+    label: "Skeptic",
+    tag: "Expert",
+    role: "Says how it fails first, on the record.",
+    question: "What breaks first, and how do we know?",
+  },
+  {
+    key: "market",
+    label: "Market",
+    tag: "Expert",
+    role: "Asks who pays, and why now.",
+    question: "Whose budget does this come out of?",
+  },
+  {
+    key: "cameo",
+    label: "Cameo",
+    tag: "Cameo",
+    role: "An outside voice, here for one meeting only.",
+    question: "What does this look like from outside?",
+  },
+] as const;
+
+export type Chair = (typeof CHAIRS)[number]["key"];
+
+export function chairMeta(chair: string | undefined | null) {
+  return CHAIRS.find((entry) => entry.key === chair) ?? CHAIRS[0];
+}
+
+/**
+ * Source material is allowed. Smuggling it is not. Every link or file is
+ * declared as prior art or as context, and attached to the record.
+ */
+export const DECLARATIONS = [
+  {
+    key: "context",
+    label: "Context",
+    hint: "Background. It shapes how we read, not what we claim.",
+  },
+  {
+    key: "prior",
+    label: "Prior art",
+    hint: "Someone has already built this. Name it before the room does.",
+  },
+] as const;
+
+export type Declaration = (typeof DECLARATIONS)[number]["key"];
+
+export function declarationMeta(declared: string | undefined | null) {
+  return DECLARATIONS.find((entry) => entry.key === declared) ?? DECLARATIONS[0];
+}
+
+/**
+ * A bout is a comparison, not an election. The room advises; a human calls it.
+ * Nothing is deleted when a bout is called — the loser stays on the table with
+ * the dissent attached.
+ */
+export const BOUT_QUESTIONS = [
+  "Which survives a price war?",
+  "Which reaches first revenue?",
+  "Which is harder to copy?",
+  "Which is easier to explain in one line?",
+  "Reverse Jenga: pull one piece out. Which still stands?",
+  "Which would you fund with your own money?",
+] as const;
+
+export const BOUT_QUESTION_CUSTOM = "Ask your own question";

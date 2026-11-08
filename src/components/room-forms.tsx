@@ -30,7 +30,7 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { BandChip, RunscoreValue, ScoreMeter } from "@/components/runscore-ui";
 import { toast } from "sonner";
-import { CornerDownRight, Loader2 } from "lucide-react";
+import { CornerDownRight, GitMerge, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Kind = "human" | "agent";
@@ -225,6 +225,7 @@ export function AddIdeaDialog({
   const [contributor, setContributor] = useState("");
   const [kind, setKind] = useState<Kind>("human");
   const [track, setTrack] = useState<Track>("concept");
+  const [bootstrap, setBootstrap] = useState("");
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
@@ -233,6 +234,7 @@ export function AddIdeaDialog({
     setThesis("");
     setKind("human");
     setTrack("concept");
+    setBootstrap("");
     setContributor(user?.name ?? user?.email?.split("@")[0] ?? "");
   }, [open, user?.name, user?.email]);
 
@@ -248,6 +250,7 @@ export function AddIdeaDialog({
         kind,
         track,
         parentId: parent?._id,
+        bootstrap: bootstrap.trim() || undefined,
       });
       toast(
         parent ? "Iteration recorded" : sealed ? "Sealed in the pool" : "On the table",
@@ -322,6 +325,22 @@ export function AddIdeaDialog({
               maxLength={600}
               rows={4}
             />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="idea-bootstrap" className="label">
+              What does it pull on? <span className="normal-case">(optional)</span>
+            </Label>
+            <Input
+              id="idea-bootstrap"
+              value={bootstrap}
+              onChange={(event) => setBootstrap(event.target.value)}
+              placeholder="A list, a room, a skill, a thing you already have"
+              maxLength={160}
+            />
+            <p className="text-[0.6875rem] leading-5 text-muted-foreground">
+              A bootstrap is an asset, not a virtue. Name the thing this actually
+              pulls on — or leave it blank and let the room ask.
+            </p>
           </div>
           <div className="flex flex-col gap-2">
             <span className="label text-muted-foreground">
@@ -657,12 +676,15 @@ export function AssessDialog({
   );
 }
 
+type Bar = "provisional" | "viable" | "runaway";
+
 export type StewardTarget = {
   _id: Id<"ideas">;
   title: string;
   steward: string | null;
   stewardKind: Kind | null;
   assignmentMode: AssignmentMode | null;
+  bar: Bar | null;
 };
 
 export function AssignDialog({
@@ -679,6 +701,7 @@ export function AssignDialog({
   const [steward, setSteward] = useState("");
   const [kind, setKind] = useState<Kind>("human");
   const [mode, setMode] = useState<AssignmentMode>("deliver");
+  const [bar, setBar] = useState<Bar>("viable");
   const [pending, setPending] = useState(false);
 
   const defaultSeat = user?.name ?? user?.email?.split("@")[0] ?? "";
@@ -688,12 +711,14 @@ export function AssignDialog({
     setSteward(idea.steward ?? defaultSeat);
     setKind(idea.stewardKind ?? "human");
     setMode(idea.assignmentMode ?? "deliver");
+    setBar(idea.bar ?? "viable");
   }, [
     open,
     idea?._id,
     idea?.steward,
     idea?.stewardKind,
     idea?.assignmentMode,
+    idea?.bar,
     defaultSeat,
   ]);
 
@@ -702,9 +727,9 @@ export function AssignDialog({
     if (!idea) return;
     setPending(true);
     try {
-      await assign({ ideaId: idea._id, steward, stewardKind: kind, mode });
+      await assign({ ideaId: idea._id, steward, stewardKind: kind, mode, bar });
       toast("Steward assigned", {
-        description: `${steward} carries it as ${mode === "explore" ? "an exploration" : "a delivery"}. Authorship stays where it was.`,
+        description: `${steward} carries it as ${mode === "explore" ? "an exploration" : "a delivery"} against the ${bar} bar. Authorship stays where it was.`,
       });
       onOpenChange(false);
     } catch (error) {
@@ -775,6 +800,40 @@ export function AssignDialog({
               ))}
             </div>
           </div>
+          <div className="flex flex-col gap-2">
+            <span className="label text-muted-foreground">The bar</span>
+            <div className="grid grid-cols-3 gap-2">
+              {(
+                [
+                  { key: "provisional", label: "Provisional" },
+                  { key: "viable", label: "Viable" },
+                  { key: "runaway", label: "Runaway" },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  disabled={pending}
+                  aria-pressed={bar === option.key}
+                  onClick={() => setBar(option.key)}
+                  className={cn(
+                    "label border px-2 py-2.5 transition-colors",
+                    bar === option.key
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground",
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[0.6875rem] leading-5 text-muted-foreground">
+              Declare the runscore band this work is judged against before it
+              starts. A hybrid can be assigned a higher bar — it still has to be
+              scored on its own merits.
+            </p>
+          </div>
+
           <p className="text-xs leading-5 text-muted-foreground">
             Assignment is authorization, not authorship. Exploration and delivery
             are recorded separately: a long shot that fails is not a broken
@@ -792,6 +851,223 @@ export function AssignDialog({
             <Button type="submit" disabled={pending || !steward.trim()}>
               {pending && <Loader2 className="size-3.5 animate-spin" />}
               Assign
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export type BreedIdea = {
+  _id: Id<"ideas">;
+  title: string;
+  track: Track;
+};
+
+/**
+ * Two ideas go in, one hybrid comes out. It inherits both lineages and no
+ * score: the room still has to make a case for the combination.
+ */
+export function BreedDialog({
+  open,
+  onOpenChange,
+  source,
+  ideas,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  source: BreedIdea | null;
+  ideas: BreedIdea[];
+}) {
+  const breed = useMutation(api.ideas.breed);
+  const { user } = useAuth();
+  const [partner, setPartner] = useState<Id<"ideas"> | "">("");
+  const [title, setTitle] = useState("");
+  const [thesis, setThesis] = useState("");
+  const [bootstrap, setBootstrap] = useState("");
+  const [contributor, setContributor] = useState("");
+  const [kind, setKind] = useState<Kind>("human");
+  const [track, setTrack] = useState<Track>("concept");
+  const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (!open || !source) return;
+    setPartner(ideas[0]?._id ?? "");
+    setTitle("");
+    setThesis("");
+    setBootstrap("");
+    setTrack(source.track);
+    setKind("human");
+    setContributor(user?.name ?? user?.email?.split("@")[0] ?? "");
+    // Opening the dialog should only reset, not react to every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, source?._id, user?.name, user?.email]);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!source || !partner) return;
+    setPending(true);
+    try {
+      await breed({
+        aId: source._id,
+        bId: partner,
+        title,
+        thesis,
+        contributor,
+        kind,
+        track,
+        bootstrap: bootstrap.trim() || undefined,
+      });
+      toast("Hybrid on the table", {
+        description:
+          "Both lineages are attached. It starts unscored, like everything else.",
+      });
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "The hybrid was not recorded.",
+      );
+    } finally {
+      setPending(false);
+    }
+  };
+
+  if (!source) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <p className="label text-muted-foreground">Breeding</p>
+          <DialogTitle className="display text-3xl">
+            Two ideas, one hybrid
+          </DialogTitle>
+          <DialogDescription>
+            Combine two entries into a third. It carries both lineages and no
+            inherited score — the combination still has to earn its own reading.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={submit} className="flex flex-col gap-5">
+          <div className="flex items-start gap-2 border border-border bg-secondary/60 px-3 py-2.5">
+            <GitMerge className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 text-xs leading-5">
+              <p className="font-medium">{source.title}</p>
+              <p className="text-muted-foreground">breeding with</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="breed-partner" className="label">
+              The other parent
+            </Label>
+            {ideas.length === 0 ? (
+              <p className="border border-dashed border-border px-3 py-3 text-xs leading-5 text-muted-foreground">
+                Breeding needs at least one other idea on the table.
+              </p>
+            ) : (
+              <select
+                id="breed-partner"
+                value={partner}
+                onChange={(event) => setPartner(event.target.value as Id<"ideas">)}
+                className="h-10 w-full border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-foreground"
+              >
+                {ideas.map((idea) => (
+                  <option key={idea._id} value={idea._id}>
+                    {idea.title}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="breed-title" className="label">
+              What is it called?
+            </Label>
+            <Input
+              id="breed-title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="A signed inventory that shows its own diff"
+              maxLength={120}
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="breed-thesis" className="label">
+              What can only the combination do?
+            </Label>
+            <Textarea
+              id="breed-thesis"
+              value={thesis}
+              onChange={(event) => setThesis(event.target.value)}
+              placeholder="Not a summary of the parents. The thing neither one could do alone."
+              maxLength={600}
+              rows={3}
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="breed-bootstrap" className="label">
+              What does it pull on? <span className="normal-case">(optional)</span>
+            </Label>
+            <Input
+              id="breed-bootstrap"
+              value={bootstrap}
+              onChange={(event) => setBootstrap(event.target.value)}
+              placeholder="The assets both parents already have"
+              maxLength={160}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <span className="label text-muted-foreground">Track</span>
+            <TrackPicker value={track} onChange={setTrack} disabled={pending} />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="breed-contributor" className="label">
+                Under the name of
+              </Label>
+              <Input
+                id="breed-contributor"
+                value={contributor}
+                onChange={(event) => setContributor(event.target.value)}
+                maxLength={60}
+                placeholder="Name or agent handle"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="label text-muted-foreground">Seat</span>
+              <KindToggle value={kind} onChange={setKind} disabled={pending} />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={
+                pending ||
+                !partner ||
+                title.trim().length < 3 ||
+                thesis.trim().length < 12
+              }
+            >
+              {pending && <Loader2 className="size-3.5 animate-spin" />}
+              Breed them
             </Button>
           </DialogFooter>
         </form>
